@@ -13,7 +13,9 @@ import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.core.type.MethodMetadata;
+import org.springframework.http.converter.ByteArrayHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
 
@@ -172,11 +174,11 @@ final class RestTemplateObservationInstaller
         }
         RestTemplateObservationRuntime runtime =
                 new RestTemplateObservationRuntime(governanceEnabled);
-        decorateJacksonConverters(restTemplate, runtime);
+        decorateSupportedConverters(restTemplate, runtime);
         restTemplate.getInterceptors().add(0, new ExchangeLoggingInterceptor(runtime));
     }
 
-    private static void decorateJacksonConverters(
+    private static void decorateSupportedConverters(
             RestTemplate restTemplate,
             RestTemplateObservationRuntime runtime) {
         List<HttpMessageConverter<?>> converters = restTemplate.getMessageConverters();
@@ -187,6 +189,18 @@ final class RestTemplateObservationInstaller
                         index,
                         new ObservedJacksonHttpMessageConverter(
                                 (AbstractJackson2HttpMessageConverter) converter,
+                                runtime));
+            } else if (converter instanceof ByteArrayHttpMessageConverter) {
+                converters.set(
+                        index,
+                        new ObservedByteArrayHttpMessageConverter(
+                                (ByteArrayHttpMessageConverter) converter,
+                                runtime));
+            } else if (converter instanceof StringHttpMessageConverter) {
+                converters.set(
+                        index,
+                        new ObservedStringHttpMessageConverter(
+                                (StringHttpMessageConverter) converter,
                                 runtime));
             }
         }

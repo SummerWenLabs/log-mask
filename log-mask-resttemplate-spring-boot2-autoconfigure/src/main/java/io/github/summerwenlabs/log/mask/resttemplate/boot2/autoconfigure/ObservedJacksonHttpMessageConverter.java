@@ -27,7 +27,8 @@ final class ObservedJacksonHttpMessageConverter
         this.runtime = runtime;
         this.bodyWriter = new TypedBodyJsonWriter(
                 delegate,
-                runtime.isGovernanceEnabled());
+                runtime.isGovernanceEnabled(),
+                runtime.maxBodyBytes());
     }
 
     @Override
@@ -63,6 +64,7 @@ final class ObservedJacksonHttpMessageConverter
     @Override
     public Object read(Class<?> clazz, HttpInputMessage inputMessage)
             throws IOException, HttpMessageNotReadableException {
+        runtime.beginJacksonResponseRead();
         Object value = delegate.read(clazz, inputMessage);
         observeResponse(inputMessage, value, clazz, clazz);
         return value;
@@ -71,6 +73,7 @@ final class ObservedJacksonHttpMessageConverter
     @Override
     public Object read(Type type, Class<?> contextClass, HttpInputMessage inputMessage)
             throws IOException, HttpMessageNotReadableException {
+        runtime.beginJacksonResponseRead();
         Object value = delegate.read(type, contextClass, inputMessage);
         Type declaredType = contextClass == null
                 ? type

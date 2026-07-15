@@ -12,18 +12,19 @@ import org.springframework.http.converter.json.AbstractJackson2HttpMessageConver
 
 final class TypedBodyJsonWriter {
 
-    private static final int DEFAULT_MAX_BODY_BYTES = 64 * 1024;
-
     private final AbstractJackson2HttpMessageConverter converter;
     private final boolean governanceEnabled;
+    private final int maxBodyBytes;
     private final Map<ObjectMapper, LogMasker> maskers =
             new IdentityHashMap<ObjectMapper, LogMasker>();
 
     TypedBodyJsonWriter(
             AbstractJackson2HttpMessageConverter converter,
-            boolean governanceEnabled) {
+            boolean governanceEnabled,
+            int maxBodyBytes) {
         this.converter = converter;
         this.governanceEnabled = governanceEnabled;
+        this.maxBodyBytes = maxBodyBytes;
     }
 
     ObservedBody write(
@@ -36,7 +37,7 @@ final class TypedBodyJsonWriter {
             BoundedMaskResult result = masker.mask(
                     value,
                     declaredType,
-                    DEFAULT_MAX_BODY_BYTES);
+                    maxBodyBytes);
             return result.isLimitExceeded()
                     ? ObservedBody.limitExceeded()
                     : ObservedBody.success(result.getJson());

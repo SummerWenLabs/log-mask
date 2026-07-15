@@ -7,17 +7,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.web.client.RestTemplateAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -43,7 +38,6 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class TypedJsonBodyObservationBoundaryIntegrationTest {
 
-    private static final String EVENT_LOGGER_NAME = "log.mask.http";
     private static final int DEFAULT_MAX_BODY_BYTES = 64 * 1024;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -51,11 +45,11 @@ class TypedJsonBodyObservationBoundaryIntegrationTest {
             .withConfiguration(AutoConfigurations.of(
                     RestTemplateAutoConfiguration.class,
                     LogMaskRestTemplateAutoConfiguration.class));
-    private CapturedEvents events;
+    private CapturedHttpEvents events;
 
     @BeforeEach
     void captureEvents() {
-        events = new CapturedEvents();
+        events = new CapturedHttpEvents();
     }
 
     @AfterEach
@@ -367,33 +361,4 @@ class TypedJsonBodyObservationBoundaryIntegrationTest {
         }
     }
 
-    private static final class CapturedEvents implements AutoCloseable {
-        private final Logger logger = (Logger) LoggerFactory.getLogger(EVENT_LOGGER_NAME);
-        private final Level originalLevel = logger.getLevel();
-        private final boolean originalAdditive = logger.isAdditive();
-        private final ListAppender<ILoggingEvent> appender = new ListAppender<ILoggingEvent>();
-
-        private CapturedEvents() {
-            appender.start();
-            logger.setLevel(Level.INFO);
-            logger.setAdditive(false);
-            logger.addAppender(appender);
-        }
-
-        private void disableInfo() {
-            logger.setLevel(Level.WARN);
-        }
-
-        private List<ILoggingEvent> getEvents() {
-            return appender.list;
-        }
-
-        @Override
-        public void close() {
-            logger.detachAppender(appender);
-            logger.setLevel(originalLevel);
-            logger.setAdditive(originalAdditive);
-            appender.stop();
-        }
-    }
 }

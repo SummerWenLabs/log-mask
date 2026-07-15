@@ -23,7 +23,7 @@ final class ExchangeLoggingInterceptor implements ClientHttpRequestInterceptor {
             runtime.discardRequestBody(request);
             return execution.execute(request, body);
         }
-        RestTemplateObservationRuntime.ExchangeScope scope = runtime.open(request);
+        RestTemplateObservationRuntime.ExchangeScope scope = runtime.open(request, body);
         long startedAt = System.nanoTime();
         try {
             ClientHttpResponse response = execution.execute(request, body);

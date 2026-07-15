@@ -2,6 +2,8 @@ package io.github.summerwenlabs.log.mask.resttemplate.boot2.autoconfigure;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,9 +31,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpRequest;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestFactory;
@@ -45,6 +51,7 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -60,6 +67,11 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class DefaultRestTemplateObservationIntegrationTest {
 
     private static final String EVENT_LOGGER_NAME = "log.mask.http";
+    private static final Charset HOST_CHARSET = StandardCharsets.UTF_16LE;
+    private static final MediaType HOST_MEDIA_TYPE =
+            MediaType.parseMediaType("application/x-host-text");
+    private static final String HOST_REQUEST_BODY = "request-\u20ac";
+    private static final String HOST_RESPONSE_BODY = "response-\u20ac";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
@@ -192,14 +204,26 @@ class DefaultRestTemplateObservationIntegrationTest {
                 .run(context -> {
                     RestTemplate restTemplate = context.getBean(RestTemplate.class);
                     HostTransport transport = context.getBean(HostTransport.class);
-                    StringHttpMessageConverter converter =
-                            context.getBean(StringHttpMessageConverter.class);
+                    HostStringHttpMessageConverter converter =
+                            context.getBean(HostStringHttpMessageConverter.class);
+                    HttpHeaders requestHeaders = new HttpHeaders();
+                    requestHeaders.setContentType(HOST_MEDIA_TYPE);
 
-                    restTemplate.getForEntity(
+                    ResponseEntity<String> response = restTemplate.exchange(
                             "https://api.example.com/host-configured",
-                            Void.class);
+                            HttpMethod.POST,
+                            new HttpEntity<String>(HOST_REQUEST_BODY, requestHeaders),
+                            String.class);
 
-                    assertSame(converter, restTemplate.getMessageConverters().get(0));
+                    assertEquals(HOST_RESPONSE_BODY, response.getBody());
+                    assertEquals(1, converter.getReadCount());
+                    assertEquals(1, converter.getWriteCount());
+                    assertEquals(
+                            HOST_MEDIA_TYPE,
+                            transport.getDownstreamContentType());
+                    assertArrayEquals(
+                            HOST_REQUEST_BODY.getBytes(HOST_CHARSET),
+                            transport.getDownstreamBody());
                     assertEquals(
                             Arrays.asList(
                                     "interceptor-before",
@@ -326,14 +350,14 @@ class DefaultRestTemplateObservationIntegrationTest {
         }
 
         @Bean
-        StringHttpMessageConverter hostConverter() {
-            return new StringHttpMessageConverter();
+        HostStringHttpMessageConverter hostConverter() {
+            return new HostStringHttpMessageConverter();
         }
 
         @Bean
         RestTemplateCustomizer hostRestTemplateCustomizer(
                 HostTransport transport,
-                StringHttpMessageConverter converter) {
+                HostStringHttpMessageConverter converter) {
             return restTemplate -> {
                 restTemplate.setRequestFactory(transport);
                 restTemplate.getMessageConverters().add(0, converter);
@@ -347,6 +371,8 @@ class DefaultRestTemplateObservationIntegrationTest {
 
         private final List<String> calls = new ArrayList<String>();
         private String downstreamHeader;
+        private MediaType downstreamContentType;
+        private byte[] downstreamBody;
 
         @Override
         public ClientHttpRequest createRequest(URI uri, HttpMethod httpMethod) {
@@ -356,8 +382,13 @@ class DefaultRestTemplateObservationIntegrationTest {
                 protected ClientHttpResponse executeInternal() {
                     calls.add("factory-execute");
                     downstreamHeader = getHeaders().getFirst("X-Downstream");
+                    downstreamContentType = getHeaders().getContentType();
+                    downstreamBody = getBodyAsBytes();
                     MockClientHttpResponse response =
-                            new MockClientHttpResponse(new byte[0], HttpStatus.NO_CONTENT);
+                            new MockClientHttpResponse(
+                                    HOST_RESPONSE_BODY.getBytes(HOST_CHARSET),
+                                    HttpStatus.OK);
+                    response.getHeaders().setContentType(HOST_MEDIA_TYPE);
                     response.getHeaders().add("X-Transport", "configured");
                     return response;
                 }
@@ -376,6 +407,14 @@ class DefaultRestTemplateObservationIntegrationTest {
             return downstreamHeader;
         }
 
+        MediaType getDownstreamContentType() {
+            return downstreamContentType;
+        }
+
+        byte[] getDownstreamBody() {
+            return downstreamBody;
+        }
+
         private static void delay() throws IOException {
             try {
                 Thread.sleep(DELAY_MILLIS);
@@ -383,6 +422,41 @@ class DefaultRestTemplateObservationIntegrationTest {
                 Thread.currentThread().interrupt();
                 throw new IOException("interrupted while simulating host interceptor work", exception);
             }
+        }
+    }
+
+    static final class HostStringHttpMessageConverter
+            extends StringHttpMessageConverter {
+        private int readCount;
+        private int writeCount;
+
+        private HostStringHttpMessageConverter() {
+            super(HOST_CHARSET);
+            setSupportedMediaTypes(Arrays.asList(HOST_MEDIA_TYPE));
+        }
+
+        @Override
+        protected String readInternal(
+                Class<? extends String> clazz,
+                HttpInputMessage inputMessage) throws IOException {
+            readCount++;
+            return super.readInternal(clazz, inputMessage);
+        }
+
+        @Override
+        protected void writeInternal(
+                String value,
+                HttpOutputMessage outputMessage) throws IOException {
+            writeCount++;
+            super.writeInternal(value, outputMessage);
+        }
+
+        int getReadCount() {
+            return readCount;
+        }
+
+        int getWriteCount() {
+            return writeCount;
         }
     }
 

@@ -12,6 +12,8 @@ final class ObservedClientHttpResponse implements ClientHttpResponse {
     private final ClientHttpResponse delegate;
     private final RestTemplateObservationRuntime runtime;
     private final RestTemplateObservationRuntime.ExchangeScope scope;
+    private boolean bodyResolved;
+    private InputStream body;
 
     ObservedClientHttpResponse(
             ClientHttpResponse delegate,
@@ -44,7 +46,22 @@ final class ObservedClientHttpResponse implements ClientHttpResponse {
 
     @Override
     public InputStream getBody() throws IOException {
-        return delegate.getBody();
+        if (!bodyResolved) {
+            BoundedBodyCapture capture = runtime.responseBodyCapture(scope);
+            try {
+                InputStream delegateBody = delegate.getBody();
+                if (delegateBody == null) {
+                    capture.endOfInput();
+                } else {
+                    body = new ObservedBodyInputStream(delegateBody, capture);
+                }
+                bodyResolved = true;
+            } catch (IOException | RuntimeException | Error failure) {
+                capture.readFailed();
+                throw failure;
+            }
+        }
+        return body;
     }
 
     @Override

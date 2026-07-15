@@ -22,18 +22,24 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.HttpRequest;
+import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
 
 final class RestTemplateObservationRuntime {
+
+    static final int DEFAULT_MAX_BODY_BYTES = 64 * 1024;
 
     private static final Logger EVENT_LOGGER = LoggerFactory.getLogger("log.mask.http");
 
     private final HttpExchangeEventWriter eventWriter = new HttpExchangeEventWriter();
     private final boolean governanceEnabled;
+    private final UntypedBodyJsonWriter untypedBodyJsonWriter;
     private final ThreadLocal<ThreadState> threadState = new ThreadLocal<ThreadState>();
 
     RestTemplateObservationRuntime(boolean governanceEnabled) {
         this.governanceEnabled = governanceEnabled;
+        this.untypedBodyJsonWriter =
+                new UntypedBodyJsonWriter(DEFAULT_MAX_BODY_BYTES);
     }
 
     boolean isInfoEnabled() {
@@ -42,6 +48,18 @@ final class RestTemplateObservationRuntime {
 
     boolean isGovernanceEnabled() {
         return governanceEnabled;
+    }
+
+    int maxBodyBytes() {
+        return DEFAULT_MAX_BODY_BYTES;
+    }
+
+    ObservedBody writeStringBody(String value) {
+        return untypedBodyJsonWriter.writeString(value);
+    }
+
+    ObservedBody writeByteArrayBody(byte[] value) {
+        return untypedBodyJsonWriter.writeBytes(value);
     }
 
     void offerRequestBody(HttpOutputMessage outputMessage, ObservedBody body) {
@@ -57,11 +75,20 @@ final class RestTemplateObservationRuntime {
         removeIfEmpty(state);
     }
 
-    ExchangeScope open(HttpRequest request) {
+    ExchangeScope open(HttpRequest request, byte[] wireBody) {
         ThreadState state = state();
         ObservedBody body = state.pendingRequestBodies.remove(request);
+        if (body == null) {
+            try {
+                body = untypedBodyJsonWriter.writeWire(
+                        wireBody,
+                        request.getHeaders().getContentType());
+            } catch (RuntimeException ignored) {
+                body = untypedBodyJsonWriter.writeBytes(wireBody);
+            }
+        }
         ExchangeScope scope = new ExchangeScope(
-                toEventRequest(request, body == null ? ObservedBody.absent() : body));
+                toEventRequest(request, body));
         state.scopes.push(scope);
         return scope;
     }
@@ -86,6 +113,24 @@ final class RestTemplateObservationRuntime {
             return;
         }
         state.scopes.peek().responseBody = body;
+    }
+
+    void beginJacksonResponseRead() {
+        ThreadState state = threadState.get();
+        if (state == null || state.scopes.isEmpty()) {
+            return;
+        }
+        state.scopes.peek().jacksonResponseReadStarted = true;
+    }
+
+    BoundedBodyCapture responseBodyCapture(ExchangeScope scope) {
+        if (scope.responseCapture == null) {
+            MediaType contentType = responseContentType(scope);
+            scope.responseContentType = contentType;
+            scope.responseCapture = new BoundedBodyCapture(
+                    untypedBodyJsonWriter.maxWireBytes(contentType));
+        }
+        return scope.responseCapture;
     }
 
     void complete(ExchangeScope scope) {
@@ -144,17 +189,70 @@ final class RestTemplateObservationRuntime {
                 .build();
     }
 
-    private static HttpExchangeResponse toEventResponse(ExchangeScope scope)
+    private HttpExchangeResponse toEventResponse(ExchangeScope scope)
             throws IOException {
-        ObservedBody body = scope.responseBody == null
-                ? ObservedBody.absent()
-                : scope.responseBody;
+        int status = scope.response.getRawStatusCode();
+        ObservedBody body = responseBody(scope, status);
         return HttpExchangeResponse.builder()
-                .status(scope.response.getRawStatusCode())
+                .status(status)
                 .headers(io.github.summerwenlabs.log.mask.http.RegionState.SUCCESS,
                         toNameValues(scope.response.getHeaders()))
                 .body(body.state(), body.value())
                 .build();
+    }
+
+    private ObservedBody responseBody(ExchangeScope scope, int status) {
+        if (scope.responseBody != null) {
+            return scope.responseBody;
+        }
+        if (scope.jacksonResponseReadStarted) {
+            return ObservedBody.processingFailed();
+        }
+        BoundedBodyCapture capture = scope.responseCapture;
+        if (capture != null) {
+            if (capture.isLimitExceeded()) {
+                return ObservedBody.limitExceeded();
+            }
+            if (capture.hasBytes()) {
+                return scope.responseContentTypeUnavailable
+                        ? untypedBodyJsonWriter.writeBytes(capture.bytes())
+                        : untypedBodyJsonWriter.writeWire(
+                                capture.bytes(),
+                                scope.responseContentType);
+            }
+            if (capture.hasNoUsableBytes()) {
+                return ObservedBody.processingFailed();
+            }
+            if (capture.isConfirmedEmpty()) {
+                return ObservedBody.absent();
+            }
+        }
+        return definitelyHasNoResponseBody(scope, status)
+                ? ObservedBody.absent()
+                : untypedBodyJsonWriter.writeString("");
+    }
+
+    private MediaType responseContentType(ExchangeScope scope) {
+        try {
+            return scope.response.getHeaders().getContentType();
+        } catch (RuntimeException ignored) {
+            scope.responseContentTypeUnavailable = true;
+            return null;
+        }
+    }
+
+    private boolean definitelyHasNoResponseBody(ExchangeScope scope, int status) {
+        if ("HEAD".equals(scope.requestMethod)
+                || status >= 100 && status < 200
+                || status == 204
+                || status == 304) {
+            return true;
+        }
+        try {
+            return scope.response.getHeaders().getContentLength() == 0L;
+        } catch (RuntimeException ignored) {
+            return false;
+        }
     }
 
     private static NameValueCollection toNameValues(HttpHeaders headers) {
@@ -167,13 +265,19 @@ final class RestTemplateObservationRuntime {
 
     static final class ExchangeScope {
         private final HttpExchangeRequest request;
+        private final String requestMethod;
         private ClientHttpResponse response;
         private ObservedBody responseBody;
+        private BoundedBodyCapture responseCapture;
+        private MediaType responseContentType;
+        private boolean responseContentTypeUnavailable;
+        private boolean jacksonResponseReadStarted;
         private long elapsedNanos;
         private boolean completed;
 
         private ExchangeScope(HttpExchangeRequest request) {
             this.request = request;
+            this.requestMethod = request.getMethod();
         }
     }
 
