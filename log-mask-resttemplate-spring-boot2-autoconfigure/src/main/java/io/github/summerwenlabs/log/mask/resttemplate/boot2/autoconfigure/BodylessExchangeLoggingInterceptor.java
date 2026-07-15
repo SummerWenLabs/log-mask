@@ -35,6 +35,9 @@ final class BodylessExchangeLoggingInterceptor implements ClientHttpRequestInter
             HttpRequest request,
             byte[] body,
             ClientHttpRequestExecution execution) throws IOException {
+        if (!EVENT_LOGGER.isInfoEnabled()) {
+            return execution.execute(request, body);
+        }
         HttpExchangeRequest eventRequest = toEventRequest(request);
         long startedAt = System.nanoTime();
         ClientHttpResponse response = null;
