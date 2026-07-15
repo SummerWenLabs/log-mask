@@ -16,6 +16,16 @@ final class SafeObjectBeanSerializerModifier extends BeanSerializerModifier {
 
     private static final long serialVersionUID = 1L;
 
+    private final MaskRuleResolver ruleResolver;
+    private final MaskingDiagnostics diagnostics;
+
+    SafeObjectBeanSerializerModifier(
+            MaskStrategyRegistry strategyRegistry,
+            MaskingDiagnostics diagnostics) {
+        this.ruleResolver = new MaskRuleResolver(strategyRegistry);
+        this.diagnostics = diagnostics;
+    }
+
     @Override
     public List<BeanPropertyWriter> changeProperties(
             SerializationConfig config,
@@ -28,8 +38,12 @@ final class SafeObjectBeanSerializerModifier extends BeanSerializerModifier {
             BeanPropertyDefinition definition = definitions.get(writer.getName());
             if (definition != null && isExcluded(definition)) {
                 writers.set(new ExcludingBeanPropertyWriter(writer));
-            } else if (definition != null && isRedacted(definition)) {
-                writers.set(new RedactingBeanPropertyWriter(writer));
+            } else if (definition != null) {
+                applyMaskRule(
+                        writers,
+                        writer,
+                        beanDescription.getBeanClass(),
+                        ruleResolver.resolve(definition));
             }
         }
         return beanProperties;
@@ -48,23 +62,33 @@ final class SafeObjectBeanSerializerModifier extends BeanSerializerModifier {
                 || hasAnnotation(definition.getGetter(), LogExclude.class);
     }
 
-    private boolean isRedacted(BeanPropertyDefinition definition) {
-        Mask fieldMask = annotation(definition.getField(), Mask.class);
-        Mask getterMask = annotation(definition.getGetter(), Mask.class);
-        return isRedact(fieldMask) || isRedact(getterMask);
-    }
-
-    private boolean isRedact(Mask mask) {
-        return mask != null && mask.type() == MaskType.REDACT;
+    private void applyMaskRule(
+            ListIterator<BeanPropertyWriter> writers,
+            BeanPropertyWriter writer,
+            Class<?> beanType,
+            MaskRule rule) {
+        if (rule.action() == MaskRule.Action.REDACT) {
+            if (rule.failureReason() != null) {
+                diagnostics.warnOnce(beanType, writer.getName(), rule.failureReason());
+            }
+            writers.set(new RedactingBeanPropertyWriter(writer));
+        } else if (rule.action() == MaskRule.Action.CONTENT && rule.builtInType() != null) {
+            writers.set(
+                    new ContentMaskingBeanPropertyWriter(
+                            writer,
+                            rule.builtInType(),
+                            diagnostics));
+        } else if (rule.action() == MaskRule.Action.CONTENT) {
+            writers.set(
+                    new ContentMaskingBeanPropertyWriter(
+                            writer,
+                            rule.definition(),
+                            diagnostics));
+        }
     }
 
     private boolean hasAnnotation(AnnotatedMember member, Class<LogExclude> annotationType) {
         return member != null && member.getAnnotation(annotationType) != null;
     }
 
-    private <A extends java.lang.annotation.Annotation> A annotation(
-            AnnotatedMember member,
-            Class<A> annotationType) {
-        return member == null ? null : member.getAnnotation(annotationType);
-    }
 }

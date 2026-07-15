@@ -13,11 +13,15 @@ public final class LogMasker {
 
     private final ObjectWriter writer;
 
-    private LogMasker(ObjectMapper objectMapper) {
+    private LogMasker(ObjectMapper objectMapper, MaskStrategyRegistry strategyRegistry) {
         ObjectMapper safeObjectMapper = objectMapper.copy();
+        MaskingDiagnostics diagnostics = new MaskingDiagnostics();
         safeObjectMapper.setSerializerFactory(
                 safeObjectMapper.getSerializerFactory()
-                        .withSerializerModifier(new SafeObjectBeanSerializerModifier()));
+                        .withSerializerModifier(
+                                new SafeObjectBeanSerializerModifier(
+                                        strategyRegistry,
+                                        diagnostics)));
         this.writer = safeObjectMapper.writer();
     }
 
@@ -35,13 +39,19 @@ public final class LogMasker {
 
     public static final class Builder {
         private final ObjectMapper objectMapper;
+        private MaskStrategyRegistry strategyRegistry = MaskStrategyRegistry.empty();
 
         private Builder(ObjectMapper objectMapper) {
             this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         }
 
+        public Builder strategyRegistry(MaskStrategyRegistry strategyRegistry) {
+            this.strategyRegistry = Objects.requireNonNull(strategyRegistry, "strategyRegistry");
+            return this;
+        }
+
         public LogMasker build() {
-            return new LogMasker(objectMapper);
+            return new LogMasker(objectMapper, strategyRegistry);
         }
     }
 }

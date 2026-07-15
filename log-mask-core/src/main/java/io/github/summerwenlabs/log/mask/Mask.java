@@ -14,5 +14,11 @@ import java.lang.annotation.Target;
 @Target({ElementType.FIELD, ElementType.METHOD})
 public @interface Mask {
 
-    MaskType type();
+    MaskType type() default MaskType.UNSPECIFIED;
+
+    String typeCode() default "";
+
+    String pattern() default "";
+
+    String replacement() default "";
 }
