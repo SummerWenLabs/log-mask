@@ -90,7 +90,12 @@ final class ObservedJacksonHttpMessageConverter
     @Override
     public void write(Object value, MediaType contentType, HttpOutputMessage outputMessage)
             throws IOException, HttpMessageNotWritableException {
-        delegate.write(value, contentType, outputMessage);
+        try {
+            delegate.write(value, contentType, outputMessage);
+        } catch (IOException | RuntimeException | Error failure) {
+            runtime.requestConverterFailed(outputMessage);
+            throw failure;
+        }
         Type declaredType = value == null ? Object.class : value.getClass();
         observeRequest(
                 outputMessage,
@@ -106,7 +111,12 @@ final class ObservedJacksonHttpMessageConverter
             MediaType contentType,
             HttpOutputMessage outputMessage)
             throws IOException, HttpMessageNotWritableException {
-        delegate.write(value, type, contentType, outputMessage);
+        try {
+            delegate.write(value, type, contentType, outputMessage);
+        } catch (IOException | RuntimeException | Error failure) {
+            runtime.requestConverterFailed(outputMessage);
+            throw failure;
+        }
         Type declaredType = type == null
                 ? (value == null ? Object.class : value.getClass())
                 : type;

@@ -162,4 +162,4 @@ pwsh ./scripts/verify-quality-gates.ps1
 mvn -Pbenchmarks -pl log-mask-benchmarks -am clean package
 ```
 
-CI 在 Boot 2.6.15/2.7.18 与 JDK 8/11/17 的六个组合中从干净工作区运行上述默认验证，并检查 Java 8 class 文件、Spring-free core、模块单向依赖及 Apache HTTP transport 依赖禁令。性能基准不设跨机器绝对阈值，结果只在相同环境内比较。
+CI 在 Boot 2.6.15/2.7.18 与 JDK 8/11/17 的六个组合中从干净工作区运行上述默认验证，并检查 Java 8 class 文件、模块单向依赖、core/http-core 的 Spring 依赖图，以及 Apache、OkHttp、Netty 等 HTTP transport 和连接池依赖禁令。性能基准不设跨机器绝对阈值，结果只在相同环境内比较。

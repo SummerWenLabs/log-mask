@@ -59,7 +59,12 @@ abstract class AbstractObservedHttpMessageConverter<T>
             MediaType contentType,
             HttpOutputMessage outputMessage)
             throws IOException, HttpMessageNotWritableException {
-        delegate.write(value, contentType, outputMessage);
+        try {
+            delegate.write(value, contentType, outputMessage);
+        } catch (IOException | RuntimeException | Error failure) {
+            runtime.requestConverterFailed(outputMessage);
+            throw failure;
+        }
         if (runtime.isInfoEnabled() && runtime.isRequestBodyEnabled()) {
             runtime.offerRequestBody(outputMessage, toObservedBody(value));
         }

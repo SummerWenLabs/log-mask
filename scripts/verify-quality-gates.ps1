@@ -36,6 +36,16 @@ function Assert-NoSpringImports([string]$module) {
     }
 }
 
+function Assert-NoSpringDependencies([string]$module) {
+    $dependencies = Get-ProjectDependencies (Join-Path $RepositoryRoot "$module/pom.xml")
+    $springDependencies = @($dependencies | Where-Object {
+        $_ -match '^org\.springframework(?:\.|:)'
+    })
+    if ($springDependencies.Count -gt 0) {
+        throw "$module must remain Spring-free: $($springDependencies -join ', ')"
+    }
+}
+
 function Assert-Java8Bytecode {
     $classFiles = @(Get-ChildItem -LiteralPath $RepositoryRoot -Recurse -Filter '*.class' |
         Where-Object { $_.FullName -match '[\\/]target[\\/](classes|test-classes)[\\/]' })
@@ -69,6 +79,8 @@ Assert-ProjectDependencies 'log-mask-samples' @(
 Assert-ProjectDependencies 'log-mask-benchmarks' @(
     'io.github.summerwenlabs:log-mask-resttemplate-spring-boot2-starter'
 )
+Assert-NoSpringDependencies 'log-mask-core'
+Assert-NoSpringDependencies 'log-mask-http-core'
 Assert-NoSpringImports 'log-mask-core'
 Assert-NoSpringImports 'log-mask-http-core'
 Assert-Java8Bytecode

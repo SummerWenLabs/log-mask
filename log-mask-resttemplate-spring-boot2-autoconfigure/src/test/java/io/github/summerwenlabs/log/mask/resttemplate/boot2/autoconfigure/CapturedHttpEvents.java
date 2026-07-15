@@ -1,5 +1,7 @@
 package io.github.summerwenlabs.log.mask.resttemplate.boot2.autoconfigure;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import ch.qos.logback.classic.Level;
@@ -25,7 +27,10 @@ final class CapturedHttpEvents implements AutoCloseable {
     }
 
     List<ILoggingEvent> getEvents() {
-        return appender.list;
+        synchronized (appender) {
+            return Collections.unmodifiableList(
+                    new ArrayList<ILoggingEvent>(appender.list));
+        }
     }
 
     void disableInfo() {

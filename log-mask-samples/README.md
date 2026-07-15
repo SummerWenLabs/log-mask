@@ -11,12 +11,6 @@ mvn -pl log-mask-samples -am package
 java -jar log-mask-samples/target/log-mask-samples-0.1.0-SNAPSHOT.jar
 ```
 
-也可以直接运行：
-
-```bash
-mvn -pl log-mask-samples -am spring-boot:run
-```
-
 默认 profile 会让自动配置创建唯一的 `logMaskRestTemplate`，随后调用下列本地端点：
 
 | 方法 | 端点 | 场景 |

@@ -90,6 +90,25 @@ final class RestTemplateObservationRuntime {
         state().pendingRequestBodies.put(outputMessage, body);
     }
 
+    void requestConverterFailed(HttpOutputMessage outputMessage) {
+        if (!isInfoEnabled() || !(outputMessage instanceof HttpRequest)) {
+            return;
+        }
+        try {
+            HttpRequest request = (HttpRequest) outputMessage;
+            ExchangeScope scope = new ExchangeScope(
+                    toEventRequest(
+                            request,
+                            settings.isRequestBodyEnabled()
+                                    ? ObservedBody.processingFailed()
+                                    : ObservedBody.disabled()),
+                    traceId());
+            complete(scope);
+        } catch (RuntimeException | Error ignored) {
+            // Converter failures must keep their original application exception.
+        }
+    }
+
     void discardRequestBody(HttpRequest request) {
         ThreadState state = threadState.get();
         if (state == null) {

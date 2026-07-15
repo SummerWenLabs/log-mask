@@ -80,6 +80,17 @@
                                         <exclude>org.apache.httpcomponents.client5:*</exclude>
                                         <exclude>org.apache.httpcomponents.core5:*</exclude>
                                         <exclude>org.apache.hc:*</exclude>
+                                        <exclude>com.squareup.okhttp:*</exclude>
+                                        <exclude>com.squareup.okhttp3:*</exclude>
+                                        <exclude>io.netty:*</exclude>
+                                        <exclude>io.projectreactor.netty:*</exclude>
+                                        <exclude>org.asynchttpclient:*</exclude>
+                                        <exclude>org.eclipse.jetty:*</exclude>
+                                        <exclude>io.undertow:*</exclude>
+                                        <exclude>org.glassfish.grizzly:*</exclude>
+                                        <exclude>org.apache.mina:*</exclude>
+                                        <exclude>org.xnio:*</exclude>
+                                        <exclude>org.apache.commons:commons-pool2</exclude>
                                     </excludes>
                                     <searchTransitive>true</searchTransitive>
                                 </bannedDependencies>
