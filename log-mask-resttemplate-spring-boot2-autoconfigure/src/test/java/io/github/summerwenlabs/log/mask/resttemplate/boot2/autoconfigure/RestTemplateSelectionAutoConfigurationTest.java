@@ -170,7 +170,7 @@ class RestTemplateSelectionAutoConfigurationTest {
                             RestTemplateObservationInstaller.class).isEmpty());
                     RestTemplate selected = context.getBean("selected", RestTemplate.class);
                     assertFalse(selected.getInterceptors().stream()
-                            .anyMatch(BodylessExchangeLoggingInterceptor.class::isInstance));
+                            .anyMatch(ExchangeLoggingInterceptor.class::isInstance));
                     MockRestServiceServer server = MockRestServiceServer.bindTo(selected).build();
                     server.expect(once(), requestTo("https://api.example.com/disabled"))
                             .andRespond(withStatus(HttpStatus.NO_CONTENT));

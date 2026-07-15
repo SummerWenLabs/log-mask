@@ -13,6 +13,8 @@ import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.core.type.MethodMetadata;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
 
 /** Installs one observation interceptor on each explicitly selected instance. */
@@ -21,6 +23,7 @@ final class RestTemplateObservationInstaller
 
     private final ConfigurableListableBeanFactory beanFactory;
     private final RestTemplateObservationProperties properties;
+    private final boolean governanceEnabled;
     private final ObjectProvider<RestTemplateObservationConfigurer> configurerProvider;
     private final Map<RestTemplate, String> pendingConfigurerCandidates =
             new IdentityHashMap<RestTemplate, String>();
@@ -31,9 +34,11 @@ final class RestTemplateObservationInstaller
     RestTemplateObservationInstaller(
             ConfigurableListableBeanFactory beanFactory,
             RestTemplateObservationProperties properties,
+            boolean governanceEnabled,
             ObjectProvider<RestTemplateObservationConfigurer> configurers) {
         this.beanFactory = beanFactory;
         this.properties = properties;
+        this.governanceEnabled = governanceEnabled;
         this.configurerProvider = configurers;
     }
 
@@ -159,12 +164,31 @@ final class RestTemplateObservationInstaller
         return false;
     }
 
-    private static void install(RestTemplate restTemplate) {
+    private void install(RestTemplate restTemplate) {
         for (Object interceptor : restTemplate.getInterceptors()) {
-            if (interceptor instanceof BodylessExchangeLoggingInterceptor) {
+            if (interceptor instanceof ExchangeLoggingInterceptor) {
                 return;
             }
         }
-        restTemplate.getInterceptors().add(0, new BodylessExchangeLoggingInterceptor());
+        RestTemplateObservationRuntime runtime =
+                new RestTemplateObservationRuntime(governanceEnabled);
+        decorateJacksonConverters(restTemplate, runtime);
+        restTemplate.getInterceptors().add(0, new ExchangeLoggingInterceptor(runtime));
+    }
+
+    private static void decorateJacksonConverters(
+            RestTemplate restTemplate,
+            RestTemplateObservationRuntime runtime) {
+        List<HttpMessageConverter<?>> converters = restTemplate.getMessageConverters();
+        for (int index = 0; index < converters.size(); index++) {
+            HttpMessageConverter<?> converter = converters.get(index);
+            if (converter instanceof AbstractJackson2HttpMessageConverter) {
+                converters.set(
+                        index,
+                        new ObservedJacksonHttpMessageConverter(
+                                (AbstractJackson2HttpMessageConverter) converter,
+                                runtime));
+            }
+        }
     }
 }

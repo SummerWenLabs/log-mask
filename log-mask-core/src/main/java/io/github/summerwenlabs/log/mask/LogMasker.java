@@ -1,6 +1,7 @@
 package io.github.summerwenlabs.log.mask;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.Objects;
 
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -14,18 +15,25 @@ import com.fasterxml.jackson.databind.SerializationFeature;
  */
 public final class LogMasker {
 
+    private final ObjectMapper objectMapper;
     private final ObjectWriter writer;
 
-    private LogMasker(ObjectMapper objectMapper, MaskStrategyRegistry strategyRegistry) {
+    private LogMasker(
+            ObjectMapper objectMapper,
+            MaskStrategyRegistry strategyRegistry,
+            boolean governanceEnabled) {
         ObjectMapper safeObjectMapper = objectMapper.copy();
         safeObjectMapper.disable(SerializationFeature.CLOSE_CLOSEABLE);
-        MaskingDiagnostics diagnostics = new MaskingDiagnostics();
-        safeObjectMapper.setSerializerFactory(
-                safeObjectMapper.getSerializerFactory()
-                        .withSerializerModifier(
-                                new SafeObjectBeanSerializerModifier(
-                                        strategyRegistry,
-                                        diagnostics)));
+        if (governanceEnabled) {
+            MaskingDiagnostics diagnostics = new MaskingDiagnostics();
+            safeObjectMapper.setSerializerFactory(
+                    safeObjectMapper.getSerializerFactory()
+                            .withSerializerModifier(
+                                    new SafeObjectBeanSerializerModifier(
+                                            strategyRegistry,
+                                            diagnostics)));
+        }
+        this.objectMapper = safeObjectMapper;
         this.writer = safeObjectMapper.writer();
     }
 
@@ -51,6 +59,31 @@ public final class LogMasker {
      * @throws LogMaskException if the value cannot be serialized
      */
     public BoundedMaskResult mask(Object value, int maxUtf8Bytes) {
+        return mask(value, writer, maxUtf8Bytes);
+    }
+
+    /**
+     * Generates a complete safe JSON representation using a declared Java type.
+     *
+     * @param value value to represent
+     * @param declaredType declared type used by the caller
+     * @param maxUtf8Bytes maximum permitted size of the final JSON, in UTF-8 bytes
+     * @return a complete JSON result, or a limit-exceeded result without partial JSON
+     */
+    public BoundedMaskResult mask(
+            Object value,
+            Type declaredType,
+            int maxUtf8Bytes) {
+        Objects.requireNonNull(declaredType, "declaredType");
+        ObjectWriter typedWriter = objectMapper.writerFor(
+                objectMapper.getTypeFactory().constructType(declaredType));
+        return mask(value, typedWriter, maxUtf8Bytes);
+    }
+
+    private BoundedMaskResult mask(
+            Object value,
+            ObjectWriter valueWriter,
+            int maxUtf8Bytes) {
         if (maxUtf8Bytes < 1) {
             throw new IllegalArgumentException("maxUtf8Bytes must be at least 1");
         }
@@ -58,8 +91,8 @@ public final class LogMasker {
         BoundedJsonGenerator generator = null;
         Throwable failure = null;
         try {
-            generator = new BoundedJsonGenerator(writer.createGenerator(output), output);
-            writer.writeValue(generator, value);
+            generator = new BoundedJsonGenerator(valueWriter.createGenerator(output), output);
+            valueWriter.writeValue(generator, value);
             generator.flush();
             return BoundedMaskResult.complete(output.toUtf8String());
         } catch (IOException | RuntimeException exception) {
@@ -96,6 +129,7 @@ public final class LogMasker {
     public static final class Builder {
         private final ObjectMapper objectMapper;
         private MaskStrategyRegistry strategyRegistry = MaskStrategyRegistry.empty();
+        private boolean governanceEnabled = true;
 
         private Builder(ObjectMapper objectMapper) {
             this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
@@ -106,8 +140,13 @@ public final class LogMasker {
             return this;
         }
 
+        public Builder governanceEnabled(boolean governanceEnabled) {
+            this.governanceEnabled = governanceEnabled;
+            return this;
+        }
+
         public LogMasker build() {
-            return new LogMasker(objectMapper, strategyRegistry);
+            return new LogMasker(objectMapper, strategyRegistry, governanceEnabled);
         }
     }
 }

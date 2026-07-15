@@ -44,6 +44,13 @@ public class LogMaskRestTemplateAutoConfiguration {
                         "log-mask.logging.rest-template",
                         RestTemplateObservationProperties.class)
                 .orElseGet(RestTemplateObservationProperties::new);
-        return new RestTemplateObservationInstaller(beanFactory, properties, configurers);
+        boolean governanceEnabled = Binder.get(environment)
+                .bind("log-mask.governance.enabled", Boolean.class)
+                .orElse(Boolean.TRUE);
+        return new RestTemplateObservationInstaller(
+                beanFactory,
+                properties,
+                governanceEnabled,
+                configurers);
     }
 }

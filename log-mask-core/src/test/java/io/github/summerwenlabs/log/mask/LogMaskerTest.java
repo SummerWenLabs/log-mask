@@ -2,6 +2,7 @@ package io.github.summerwenlabs.log.mask;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -18,7 +19,9 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -324,6 +327,29 @@ class LogMaskerTest {
             assertEquals("must-not-be-read", nested.excluded);
             assertEquals("must-not-be-read", nested.redacted);
         }
+    }
+
+    @Test
+    void boundedMaskUsesDeclaredGenericTypeForNestedGovernance() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.enable(MapperFeature.USE_STATIC_TYPING);
+        LogMasker masker = LogMasker.builder(mapper).build();
+        GenericSubtypeValue nested = new GenericSubtypeValue(
+                "generic", "13800138000");
+        GenericWrapper<GenericBaseValue> value =
+                new GenericWrapper<GenericBaseValue>(nested);
+        Type declaredType = new TypeReference<GenericWrapper<GenericBaseValue>>() {
+        }.getType();
+
+        BoundedMaskResult result = masker.mask(value, declaredType, 1024);
+
+        assertFalse(result.isLimitExceeded());
+        JsonNode nestedResult = mapper.readTree(result.getJson()).path("value");
+        assertEquals("generic", nestedResult.path("plain").textValue());
+        assertEquals("138****8000", nestedResult.path("phone").textValue());
+        assertFalse(nestedResult.has("excluded"));
+        assertFalse(nestedResult.has("subtypeOnly"));
+        assertEquals(0, nested.excludedReads());
     }
 
     @Test
@@ -979,6 +1005,46 @@ class LogMaskerTest {
 
         public T getValue() {
             return value;
+        }
+    }
+
+    private static class GenericBaseValue {
+        private final String plain;
+        private final String phone;
+        private int excludedReads;
+
+        private GenericBaseValue(String plain, String phone) {
+            this.plain = plain;
+            this.phone = phone;
+        }
+
+        public String getPlain() {
+            return plain;
+        }
+
+        @Mask(type = MaskType.PHONE)
+        public String getPhone() {
+            return phone;
+        }
+
+        @LogExclude
+        public String getExcluded() {
+            excludedReads++;
+            return "must-not-be-read";
+        }
+
+        int excludedReads() {
+            return excludedReads;
+        }
+    }
+
+    private static final class GenericSubtypeValue extends GenericBaseValue {
+        private GenericSubtypeValue(String plain, String phone) {
+            super(plain, phone);
+        }
+
+        public String getSubtypeOnly() {
+            return "subtype-only";
         }
     }
 
