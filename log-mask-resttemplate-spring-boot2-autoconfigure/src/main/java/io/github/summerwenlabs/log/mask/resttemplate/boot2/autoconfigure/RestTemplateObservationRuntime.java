@@ -17,8 +17,11 @@ import io.github.summerwenlabs.log.mask.http.HttpExchangeRequest;
 import io.github.summerwenlabs.log.mask.http.HttpExchangeResponse;
 import io.github.summerwenlabs.log.mask.http.HttpRequestUri;
 import io.github.summerwenlabs.log.mask.http.NameValueCollection;
+import io.github.summerwenlabs.log.mask.http.RegionState;
+import io.github.summerwenlabs.log.mask.MaskStrategyRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.HttpRequest;
@@ -27,19 +30,24 @@ import org.springframework.http.client.ClientHttpResponse;
 
 final class RestTemplateObservationRuntime {
 
-    static final int DEFAULT_MAX_BODY_BYTES = 64 * 1024;
-
     private static final Logger EVENT_LOGGER = LoggerFactory.getLogger("log.mask.http");
 
-    private final HttpExchangeEventWriter eventWriter = new HttpExchangeEventWriter();
-    private final boolean governanceEnabled;
+    private final RestTemplateObservationSettings settings;
+    private final HttpExchangeEventWriter eventWriter;
     private final UntypedBodyJsonWriter untypedBodyJsonWriter;
     private final ThreadLocal<ThreadState> threadState = new ThreadLocal<ThreadState>();
 
-    RestTemplateObservationRuntime(boolean governanceEnabled) {
-        this.governanceEnabled = governanceEnabled;
+    RestTemplateObservationRuntime(RestTemplateObservationSettings settings) {
+        this.settings = settings;
+        this.eventWriter = new HttpExchangeEventWriter(
+                settings.getNameValueShape(),
+                settings.isUriDetailsEnabled());
         this.untypedBodyJsonWriter =
-                new UntypedBodyJsonWriter(DEFAULT_MAX_BODY_BYTES);
+                new UntypedBodyJsonWriter(settings.getMaxBodyBytes());
+    }
+
+    RestTemplateObservationRuntime(boolean governanceEnabled) {
+        this(RestTemplateObservationSettings.defaults(governanceEnabled));
     }
 
     boolean isInfoEnabled() {
@@ -47,11 +55,23 @@ final class RestTemplateObservationRuntime {
     }
 
     boolean isGovernanceEnabled() {
-        return governanceEnabled;
+        return settings.isGovernanceEnabled();
     }
 
     int maxBodyBytes() {
-        return DEFAULT_MAX_BODY_BYTES;
+        return settings.getMaxBodyBytes();
+    }
+
+    MaskStrategyRegistry strategyRegistry() {
+        return settings.getStrategyRegistry();
+    }
+
+    boolean isRequestBodyEnabled() {
+        return settings.isRequestBodyEnabled();
+    }
+
+    boolean isResponseBodyEnabled() {
+        return settings.isResponseBodyEnabled();
     }
 
     ObservedBody writeStringBody(String value) {
@@ -63,6 +83,9 @@ final class RestTemplateObservationRuntime {
     }
 
     void offerRequestBody(HttpOutputMessage outputMessage, ObservedBody body) {
+        if (!settings.isRequestBodyEnabled()) {
+            return;
+        }
         state().pendingRequestBodies.put(outputMessage, body);
     }
 
@@ -77,8 +100,10 @@ final class RestTemplateObservationRuntime {
 
     ExchangeScope open(HttpRequest request, byte[] wireBody) {
         ThreadState state = state();
-        ObservedBody body = state.pendingRequestBodies.remove(request);
-        if (body == null) {
+        ObservedBody body = settings.isRequestBodyEnabled()
+                ? state.pendingRequestBodies.remove(request)
+                : ObservedBody.disabled();
+        if (settings.isRequestBodyEnabled() && body == null) {
             try {
                 body = untypedBodyJsonWriter.writeWire(
                         wireBody,
@@ -88,7 +113,8 @@ final class RestTemplateObservationRuntime {
             }
         }
         ExchangeScope scope = new ExchangeScope(
-                toEventRequest(request, body));
+                toEventRequest(request, body),
+                traceId());
         state.scopes.push(scope);
         return scope;
     }
@@ -108,6 +134,9 @@ final class RestTemplateObservationRuntime {
     }
 
     void recordResponseBody(ObservedBody body) {
+        if (!settings.isResponseBodyEnabled()) {
+            return;
+        }
         ThreadState state = threadState.get();
         if (state == null || state.scopes.isEmpty()) {
             return;
@@ -116,6 +145,9 @@ final class RestTemplateObservationRuntime {
     }
 
     void beginJacksonResponseRead() {
+        if (!settings.isResponseBodyEnabled()) {
+            return;
+        }
         ThreadState state = threadState.get();
         if (state == null || state.scopes.isEmpty()) {
             return;
@@ -124,6 +156,9 @@ final class RestTemplateObservationRuntime {
     }
 
     BoundedBodyCapture responseBodyCapture(ExchangeScope scope) {
+        if (!settings.isResponseBodyEnabled()) {
+            throw new IllegalStateException("Response body capture is disabled");
+        }
         if (scope.responseCapture == null) {
             MediaType contentType = responseContentType(scope);
             scope.responseContentType = contentType;
@@ -157,7 +192,8 @@ final class RestTemplateObservationRuntime {
                 .exchangeId(UUID.randomUUID())
                 .durationMs(TimeUnit.NANOSECONDS.toMillis(
                         Math.max(0L, scope.elapsedNanos)))
-                .governanceEnabled(governanceEnabled)
+                .traceId(scope.traceId)
+                .governanceEnabled(settings.isGovernanceEnabled())
                 .request(scope.request)
                 .response(scope.response == null ? null : toEventResponse(scope))
                 .build();
@@ -179,29 +215,53 @@ final class RestTemplateObservationRuntime {
         }
     }
 
-    private static HttpExchangeRequest toEventRequest(HttpRequest request, ObservedBody body) {
-        return HttpExchangeRequest.builder()
+    private HttpExchangeRequest toEventRequest(HttpRequest request, ObservedBody body) {
+        HttpRequestUri uri = settings.isGovernanceEnabled()
+                ? settings.getPathGovernance().govern(
+                        request.getURI(),
+                        request.getMethodValue(),
+                        settings.getQueryGovernance())
+                : HttpRequestUri.from(request.getURI());
+        HttpExchangeRequest.Builder eventRequest = HttpExchangeRequest.builder()
                 .method(request.getMethodValue())
-                .uri(HttpRequestUri.from(request.getURI()))
-                .headers(io.github.summerwenlabs.log.mask.http.RegionState.SUCCESS,
-                        toNameValues(request.getHeaders()))
-                .body(body.state(), body.value())
-                .build();
+                .uri(uri)
+                .body(body.state(), body.value());
+        if (!settings.isRequestHeadersEnabled()) {
+            return eventRequest.headers(RegionState.DISABLED, null).build();
+        }
+        NameValueCollection headers = toNameValues(request.getHeaders());
+        if (!settings.isGovernanceEnabled()) {
+            return eventRequest.headers(RegionState.SUCCESS, headers).build();
+        }
+        io.github.summerwenlabs.log.mask.http.HttpHeaderGovernance.Result governed =
+                settings.getRequestHeaderGovernance().govern(uri.getHost(), headers);
+        return eventRequest.headers(governed.getState(), governed.getHeaders()).build();
     }
 
     private HttpExchangeResponse toEventResponse(ExchangeScope scope)
             throws IOException {
         int status = scope.response.getRawStatusCode();
         ObservedBody body = responseBody(scope, status);
-        return HttpExchangeResponse.builder()
+        HttpExchangeResponse.Builder eventResponse = HttpExchangeResponse.builder()
                 .status(status)
-                .headers(io.github.summerwenlabs.log.mask.http.RegionState.SUCCESS,
-                        toNameValues(scope.response.getHeaders()))
-                .body(body.state(), body.value())
-                .build();
+                .body(body.state(), body.value());
+        if (!settings.isResponseHeadersEnabled()) {
+            return eventResponse.headers(RegionState.DISABLED, null).build();
+        }
+        NameValueCollection headers = toNameValues(scope.response.getHeaders());
+        if (!settings.isGovernanceEnabled()) {
+            return eventResponse.headers(RegionState.SUCCESS, headers).build();
+        }
+        io.github.summerwenlabs.log.mask.http.HttpHeaderGovernance.Result governed =
+                settings.getResponseHeaderGovernance().govern(
+                        scope.request.getUri().getHost(), headers);
+        return eventResponse.headers(governed.getState(), governed.getHeaders()).build();
     }
 
     private ObservedBody responseBody(ExchangeScope scope, int status) {
+        if (!settings.isResponseBodyEnabled()) {
+            return ObservedBody.disabled();
+        }
         if (scope.responseBody != null) {
             return scope.responseBody;
         }
@@ -255,6 +315,19 @@ final class RestTemplateObservationRuntime {
         }
     }
 
+    private String traceId() {
+        if (!settings.isTraceIdEnabled()) {
+            return null;
+        }
+        for (String key : settings.getTraceIdMdcKeys()) {
+            String value = MDC.get(key);
+            if (value != null && !value.isEmpty()) {
+                return value;
+            }
+        }
+        return null;
+    }
+
     private static NameValueCollection toNameValues(HttpHeaders headers) {
         NameValueCollection.Builder result = NameValueCollection.builder();
         for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
@@ -266,6 +339,7 @@ final class RestTemplateObservationRuntime {
     static final class ExchangeScope {
         private final HttpExchangeRequest request;
         private final String requestMethod;
+        private final String traceId;
         private ClientHttpResponse response;
         private ObservedBody responseBody;
         private BoundedBodyCapture responseCapture;
@@ -275,9 +349,10 @@ final class RestTemplateObservationRuntime {
         private long elapsedNanos;
         private boolean completed;
 
-        private ExchangeScope(HttpExchangeRequest request) {
+        private ExchangeScope(HttpExchangeRequest request, String traceId) {
             this.request = request;
             this.requestMethod = request.getMethod();
+            this.traceId = traceId;
         }
     }
 

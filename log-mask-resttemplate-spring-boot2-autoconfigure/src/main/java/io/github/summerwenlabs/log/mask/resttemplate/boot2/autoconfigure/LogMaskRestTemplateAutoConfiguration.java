@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.web.client.RestTemplate;
+import io.github.summerwenlabs.log.mask.MaskTypeDefinition;
 
 /**
  * Auto-configuration for the default observed RestTemplate.
@@ -38,19 +39,24 @@ public class LogMaskRestTemplateAutoConfiguration {
     static RestTemplateObservationInstaller restTemplateObservationInstaller(
             ConfigurableListableBeanFactory beanFactory,
             Environment environment,
-            ObjectProvider<RestTemplateObservationConfigurer> configurers) {
+            ObjectProvider<RestTemplateObservationConfigurer> configurers,
+            ObjectProvider<MaskTypeDefinition> maskTypeDefinitions) {
         RestTemplateObservationProperties properties = Binder.get(environment)
                 .bind(
                         "log-mask.logging.rest-template",
                         RestTemplateObservationProperties.class)
                 .orElseGet(RestTemplateObservationProperties::new);
-        boolean governanceEnabled = Binder.get(environment)
-                .bind("log-mask.governance.enabled", Boolean.class)
-                .orElse(Boolean.TRUE);
+        LogMaskGovernanceProperties governance = Binder.get(environment)
+                .bind("log-mask.governance", LogMaskGovernanceProperties.class)
+                .orElseGet(LogMaskGovernanceProperties::new);
+        RestTemplateObservationSettings settings = RestTemplateObservationSettings.create(
+                properties,
+                governance,
+                maskTypeDefinitions);
         return new RestTemplateObservationInstaller(
                 beanFactory,
                 properties,
-                governanceEnabled,
+                settings,
                 configurers);
     }
 }

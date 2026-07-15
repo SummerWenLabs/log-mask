@@ -47,7 +47,7 @@ abstract class AbstractObservedHttpMessageConverter<T>
     public T read(Class<? extends T> type, HttpInputMessage inputMessage)
             throws IOException, HttpMessageNotReadableException {
         T value = delegate.read(type, inputMessage);
-        if (runtime.isInfoEnabled()) {
+        if (runtime.isInfoEnabled() && runtime.isResponseBodyEnabled()) {
             runtime.recordResponseBody(toObservedBody(value));
         }
         return value;
@@ -60,7 +60,7 @@ abstract class AbstractObservedHttpMessageConverter<T>
             HttpOutputMessage outputMessage)
             throws IOException, HttpMessageNotWritableException {
         delegate.write(value, contentType, outputMessage);
-        if (runtime.isInfoEnabled()) {
+        if (runtime.isInfoEnabled() && runtime.isRequestBodyEnabled()) {
             runtime.offerRequestBody(outputMessage, toObservedBody(value));
         }
     }

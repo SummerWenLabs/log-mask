@@ -25,7 +25,7 @@ final class RestTemplateObservationInstaller
 
     private final ConfigurableListableBeanFactory beanFactory;
     private final RestTemplateObservationProperties properties;
-    private final boolean governanceEnabled;
+    private final RestTemplateObservationSettings settings;
     private final ObjectProvider<RestTemplateObservationConfigurer> configurerProvider;
     private final Map<RestTemplate, String> pendingConfigurerCandidates =
             new IdentityHashMap<RestTemplate, String>();
@@ -36,11 +36,11 @@ final class RestTemplateObservationInstaller
     RestTemplateObservationInstaller(
             ConfigurableListableBeanFactory beanFactory,
             RestTemplateObservationProperties properties,
-            boolean governanceEnabled,
+            RestTemplateObservationSettings settings,
             ObjectProvider<RestTemplateObservationConfigurer> configurers) {
         this.beanFactory = beanFactory;
         this.properties = properties;
-        this.governanceEnabled = governanceEnabled;
+        this.settings = settings;
         this.configurerProvider = configurers;
     }
 
@@ -173,7 +173,7 @@ final class RestTemplateObservationInstaller
             }
         }
         RestTemplateObservationRuntime runtime =
-                new RestTemplateObservationRuntime(governanceEnabled);
+                new RestTemplateObservationRuntime(settings);
         decorateSupportedConverters(restTemplate, runtime);
         restTemplate.getInterceptors().add(0, new ExchangeLoggingInterceptor(runtime));
     }

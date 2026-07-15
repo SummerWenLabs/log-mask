@@ -11,6 +11,8 @@ final class ObservedBody {
             new ObservedBody(RegionState.LIMIT_EXCEEDED, JsonValue.emptyString());
     private static final ObservedBody PROCESSING_FAILED =
             new ObservedBody(RegionState.PROCESSING_FAILED, JsonValue.emptyString());
+    private static final ObservedBody DISABLED =
+            new ObservedBody(RegionState.DISABLED, JsonValue.emptyString());
 
     private final RegionState state;
     private final JsonValue value;
@@ -34,6 +36,10 @@ final class ObservedBody {
 
     static ObservedBody processingFailed() {
         return PROCESSING_FAILED;
+    }
+
+    static ObservedBody disabled() {
+        return DISABLED;
     }
 
     RegionState state() {

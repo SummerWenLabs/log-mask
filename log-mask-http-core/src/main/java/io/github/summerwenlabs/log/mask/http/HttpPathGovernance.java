@@ -53,7 +53,18 @@ public final class HttpPathGovernance {
     }
 
     public HttpRequestUri govern(URI requestUri, String method) {
+        return govern(requestUri, method, HttpQueryGovernance.none());
+    }
+
+    /**
+     * Governs a URI path and query with independently compiled rule sets.
+     */
+    public HttpRequestUri govern(
+            URI requestUri,
+            String method,
+            HttpQueryGovernance queryGovernance) {
         Objects.requireNonNull(requestUri, "requestUri");
+        Objects.requireNonNull(queryGovernance, "queryGovernance");
         String normalizedMethod = normalizeMethod(method);
         String rawPath = requestUri.getRawPath();
         if (rawPath == null) {
@@ -66,11 +77,12 @@ public final class HttpPathGovernance {
         }
         CompiledRule selected = select(host, normalizedMethod, pathSegments);
         if (selected == null) {
-            return HttpRequestUri.from(requestUri);
+            return HttpRequestUri.from(requestUri, queryGovernance);
         }
         PathResult result = selected.govern(pathSegments, rawPath.length());
         return HttpRequestUri.fromGovernedPath(
                 requestUri,
+                queryGovernance,
                 result.path,
                 result.fallbackApplied);
     }

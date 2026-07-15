@@ -57,11 +57,12 @@ public final class HttpRequestUri {
 
     static HttpRequestUri fromGovernedPath(
             URI requestUri,
+            HttpQueryGovernance queryGovernance,
             String governedPath,
             boolean pathFallbackApplied) {
         return from(
                 requestUri,
-                HttpQueryGovernance.none(),
+                queryGovernance,
                 Objects.requireNonNull(governedPath, "governedPath"),
                 pathFallbackApplied);
     }

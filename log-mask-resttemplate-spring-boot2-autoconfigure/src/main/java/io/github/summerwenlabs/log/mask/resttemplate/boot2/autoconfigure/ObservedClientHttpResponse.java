@@ -46,6 +46,9 @@ final class ObservedClientHttpResponse implements ClientHttpResponse {
 
     @Override
     public InputStream getBody() throws IOException {
+        if (!runtime.isResponseBodyEnabled()) {
+            return delegate.getBody();
+        }
         if (!bodyResolved) {
             BoundedBodyCapture capture = runtime.responseBodyCapture(scope);
             try {

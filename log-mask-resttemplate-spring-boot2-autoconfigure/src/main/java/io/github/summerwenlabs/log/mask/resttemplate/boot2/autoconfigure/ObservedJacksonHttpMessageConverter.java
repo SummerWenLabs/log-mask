@@ -28,7 +28,8 @@ final class ObservedJacksonHttpMessageConverter
         this.bodyWriter = new TypedBodyJsonWriter(
                 delegate,
                 runtime.isGovernanceEnabled(),
-                runtime.maxBodyBytes());
+                runtime.maxBodyBytes(),
+                runtime.strategyRegistry());
     }
 
     @Override
@@ -120,7 +121,7 @@ final class ObservedJacksonHttpMessageConverter
             Object value,
             Type declaredType,
             Class<?> mapperTargetType) {
-        if (runtime.isInfoEnabled()) {
+        if (runtime.isInfoEnabled() && runtime.isRequestBodyEnabled()) {
             runtime.offerRequestBody(
                     outputMessage,
                     bodyWriter.write(
@@ -136,7 +137,7 @@ final class ObservedJacksonHttpMessageConverter
             Object value,
             Type declaredType,
             Class<?> mapperTargetType) {
-        if (runtime.isInfoEnabled()) {
+        if (runtime.isInfoEnabled() && runtime.isResponseBodyEnabled()) {
             runtime.recordResponseBody(
                     bodyWriter.write(
                             value,
