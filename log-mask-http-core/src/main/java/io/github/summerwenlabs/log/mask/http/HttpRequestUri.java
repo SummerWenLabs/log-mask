@@ -6,6 +6,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -40,8 +42,15 @@ public final class HttpRequestUri {
     }
 
     public static HttpRequestUri from(URI requestUri) {
+        return from(requestUri, HttpQueryGovernance.none());
+    }
+
+    public static HttpRequestUri from(
+            URI requestUri,
+            HttpQueryGovernance queryGovernance) {
         return from(
                 requestUri,
+                queryGovernance,
                 path(Objects.requireNonNull(requestUri, "requestUri")),
                 false);
     }
@@ -52,15 +61,18 @@ public final class HttpRequestUri {
             boolean pathFallbackApplied) {
         return from(
                 requestUri,
+                HttpQueryGovernance.none(),
                 Objects.requireNonNull(governedPath, "governedPath"),
                 pathFallbackApplied);
     }
 
     private static HttpRequestUri from(
             URI requestUri,
+            HttpQueryGovernance queryGovernance,
             String governedPath,
             boolean pathFallbackApplied) {
         Objects.requireNonNull(requestUri, "requestUri");
+        Objects.requireNonNull(queryGovernance, "queryGovernance");
         boolean processed = isProcessableHttpUri(requestUri);
         String scheme = normalize(requestUri.getScheme());
         String host = normalize(requestUri.getHost());
@@ -69,18 +81,21 @@ public final class HttpRequestUri {
                 ? (explicitPort >= 0 ? explicitPort : defaultPort(scheme))
                 : fallbackPort(requestUri, scheme);
         String path = governedPath;
-        String rawQuery = requestUri.getRawQuery();
+        QueryResult query = governQuery(
+                requestUri.getRawQuery(),
+                host,
+                queryGovernance);
         String full = processed
-                ? rebuildHttpUri(requestUri, scheme, host, path, rawQuery)
-                : rebuildFallbackUri(requestUri, scheme, host, path, rawQuery);
+                ? rebuildHttpUri(requestUri, scheme, host, path, query.rawQuery)
+                : rebuildFallbackUri(requestUri, scheme, host, path, query.rawQuery);
         return new HttpRequestUri(
-                state(processed, pathFallbackApplied),
+                state(processed, query.fallbackApplied || pathFallbackApplied),
                 full,
                 scheme,
                 host,
                 port,
                 path,
-                parseQuery(rawQuery));
+                query.values);
     }
 
     private static RegionState state(boolean processed, boolean fallbackApplied) {
@@ -258,28 +273,97 @@ public final class HttpRequestUri {
         return separator < 0 ? authority : authority.substring(separator + 1);
     }
 
-    private static NameValueCollection parseQuery(String rawQuery) {
+    private static QueryResult governQuery(
+            String rawQuery,
+            String host,
+            HttpQueryGovernance governance) {
         NameValueCollection.Builder query = NameValueCollection.builder();
-        if (rawQuery == null || rawQuery.isEmpty()) {
-            return query.build();
+        if (rawQuery == null) {
+            return new QueryResult(null, query.build(), false);
         }
+        if (rawQuery.isEmpty()) {
+            return new QueryResult("", query.build(), false);
+        }
+        List<String> rendered = new ArrayList<String>();
+        boolean fallbackApplied = false;
         String[] elements = rawQuery.split("&", -1);
         for (String element : elements) {
             int separator = element.indexOf('=');
-            if (separator < 0) {
-                query.add(decodeQueryComponent(element), null);
-            } else {
-                query.add(
-                        decodeQueryComponent(element.substring(0, separator)),
-                        decodeQueryComponent(element.substring(separator + 1)));
+            boolean hasValue = separator >= 0;
+            String rawName = hasValue ? element.substring(0, separator) : element;
+            String rawValue = hasValue ? element.substring(separator + 1) : null;
+            DecodedComponent name = decodeQueryComponent(rawName);
+            DecodedComponent value = hasValue
+                    ? decodeQueryComponent(rawValue)
+                    : DecodedComponent.success(null);
+            HttpQueryGovernance.QueryValue governed = name.decoded
+                    ? governance.govern(
+                            host,
+                            name.value,
+                            value.value,
+                            value.decoded,
+                            hasValue)
+                    : HttpQueryGovernance.QueryValue.unchanged(value.value);
+            if (governed.excluded) {
+                continue;
             }
+            query.add(name.value, governed.value);
+            rendered.add(governed.governed
+                    ? renderGovernedQueryElement(rawName, governed.value, hasValue)
+                    : element);
+            fallbackApplied |= governed.fallbackApplied;
         }
-        return query.build();
+        String governedRawQuery = rendered.isEmpty() ? null : join(rendered);
+        return new QueryResult(governedRawQuery, query.build(), fallbackApplied);
     }
 
-    private static String decodeQueryComponent(String raw) {
+    private static String renderGovernedQueryElement(
+            String rawName,
+            String value,
+            boolean hasValue) {
+        return hasValue ? rawName + '=' + encodeQueryValue(value) : rawName;
+    }
+
+    private static String join(List<String> elements) {
+        StringBuilder result = new StringBuilder();
+        for (int index = 0; index < elements.size(); index++) {
+            if (index > 0) {
+                result.append('&');
+            }
+            result.append(elements.get(index));
+        }
+        return result.toString();
+    }
+
+    private static String encodeQueryValue(String value) {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        StringBuilder encoded = new StringBuilder(bytes.length);
+        for (byte current : bytes) {
+            int unsigned = current & 0xff;
+            if (isUnreserved(unsigned)) {
+                encoded.append((char) unsigned);
+            } else {
+                encoded.append('%');
+                encoded.append(Character.toUpperCase(Character.forDigit(unsigned >>> 4, 16)));
+                encoded.append(Character.toUpperCase(Character.forDigit(unsigned & 0x0f, 16)));
+            }
+        }
+        return encoded.toString();
+    }
+
+    private static boolean isUnreserved(int value) {
+        return (value >= 'a' && value <= 'z')
+                || (value >= 'A' && value <= 'Z')
+                || (value >= '0' && value <= '9')
+                || value == '-'
+                || value == '.'
+                || value == '_'
+                || value == '~';
+    }
+
+    private static DecodedComponent decodeQueryComponent(String raw) {
         if (raw.indexOf('%') < 0) {
-            return raw;
+            return DecodedComponent.success(raw);
         }
         StringBuilder decoded = new StringBuilder(raw.length());
         int index = 0;
@@ -293,12 +377,12 @@ public final class HttpRequestUri {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             while (index < raw.length() && raw.charAt(index) == '%') {
                 if (index + 2 >= raw.length()) {
-                    return raw;
+                    return DecodedComponent.failure(raw);
                 }
                 int high = Character.digit(raw.charAt(index + 1), 16);
                 int low = Character.digit(raw.charAt(index + 2), 16);
                 if (high < 0 || low < 0) {
-                    return raw;
+                    return DecodedComponent.failure(raw);
                 }
                 bytes.write((high << 4) + low);
                 index += 3;
@@ -309,9 +393,42 @@ public final class HttpRequestUri {
                         .onUnmappableCharacter(CodingErrorAction.REPORT)
                         .decode(ByteBuffer.wrap(bytes.toByteArray())));
             } catch (CharacterCodingException exception) {
-                return raw;
+                return DecodedComponent.failure(raw);
             }
         }
-        return decoded.toString();
+        return DecodedComponent.success(decoded.toString());
+    }
+
+    private static final class QueryResult {
+        private final String rawQuery;
+        private final NameValueCollection values;
+        private final boolean fallbackApplied;
+
+        private QueryResult(
+                String rawQuery,
+                NameValueCollection values,
+                boolean fallbackApplied) {
+            this.rawQuery = rawQuery;
+            this.values = values;
+            this.fallbackApplied = fallbackApplied;
+        }
+    }
+
+    private static final class DecodedComponent {
+        private final String value;
+        private final boolean decoded;
+
+        private DecodedComponent(String value, boolean decoded) {
+            this.value = value;
+            this.decoded = decoded;
+        }
+
+        private static DecodedComponent success(String value) {
+            return new DecodedComponent(value, true);
+        }
+
+        private static DecodedComponent failure(String rawValue) {
+            return new DecodedComponent(rawValue, false);
+        }
     }
 }
