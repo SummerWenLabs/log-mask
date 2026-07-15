@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.MediaType;
@@ -144,6 +145,17 @@ final class RestTemplateObservationRuntime {
         state.scopes.peek().responseBody = body;
     }
 
+    void recordResponseBody(HttpInputMessage inputMessage, ObservedBody body) {
+        ExchangeScope scope = scopeFor(inputMessage);
+        if (scope != null) {
+            if (settings.isResponseBodyEnabled()) {
+                scope.responseBody = body;
+            }
+            return;
+        }
+        recordResponseBody(body);
+    }
+
     void beginJacksonResponseRead() {
         if (!settings.isResponseBodyEnabled()) {
             return;
@@ -153,6 +165,17 @@ final class RestTemplateObservationRuntime {
             return;
         }
         state.scopes.peek().jacksonResponseReadStarted = true;
+    }
+
+    void beginJacksonResponseRead(HttpInputMessage inputMessage) {
+        ExchangeScope scope = scopeFor(inputMessage);
+        if (scope != null) {
+            if (settings.isResponseBodyEnabled()) {
+                scope.jacksonResponseReadStarted = true;
+            }
+            return;
+        }
+        beginJacksonResponseRead();
     }
 
     BoundedBodyCapture responseBodyCapture(ExchangeScope scope) {
@@ -326,6 +349,12 @@ final class RestTemplateObservationRuntime {
             }
         }
         return null;
+    }
+
+    private static ExchangeScope scopeFor(HttpInputMessage inputMessage) {
+        return inputMessage instanceof ObservedClientHttpResponse
+                ? ((ObservedClientHttpResponse) inputMessage).scope()
+                : null;
     }
 
     private static NameValueCollection toNameValues(HttpHeaders headers) {

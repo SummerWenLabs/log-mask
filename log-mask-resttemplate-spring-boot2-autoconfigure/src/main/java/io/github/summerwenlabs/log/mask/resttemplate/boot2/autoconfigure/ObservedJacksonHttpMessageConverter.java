@@ -65,7 +65,7 @@ final class ObservedJacksonHttpMessageConverter
     @Override
     public Object read(Class<?> clazz, HttpInputMessage inputMessage)
             throws IOException, HttpMessageNotReadableException {
-        runtime.beginJacksonResponseRead();
+        runtime.beginJacksonResponseRead(inputMessage);
         Object value = delegate.read(clazz, inputMessage);
         observeResponse(inputMessage, value, clazz, clazz);
         return value;
@@ -74,7 +74,7 @@ final class ObservedJacksonHttpMessageConverter
     @Override
     public Object read(Type type, Class<?> contextClass, HttpInputMessage inputMessage)
             throws IOException, HttpMessageNotReadableException {
-        runtime.beginJacksonResponseRead();
+        runtime.beginJacksonResponseRead(inputMessage);
         Object value = delegate.read(type, contextClass, inputMessage);
         Type declaredType = contextClass == null
                 ? type
@@ -139,6 +139,7 @@ final class ObservedJacksonHttpMessageConverter
             Class<?> mapperTargetType) {
         if (runtime.isInfoEnabled() && runtime.isResponseBodyEnabled()) {
             runtime.recordResponseBody(
+                    inputMessage,
                     bodyWriter.write(
                             value,
                             declaredType,

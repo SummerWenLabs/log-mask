@@ -48,7 +48,7 @@ abstract class AbstractObservedHttpMessageConverter<T>
             throws IOException, HttpMessageNotReadableException {
         T value = delegate.read(type, inputMessage);
         if (runtime.isInfoEnabled() && runtime.isResponseBodyEnabled()) {
-            runtime.recordResponseBody(toObservedBody(value));
+            runtime.recordResponseBody(inputMessage, toObservedBody(value));
         }
         return value;
     }
