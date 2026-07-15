@@ -1,8 +1,13 @@
 package io.github.summerwenlabs.log.mask;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -16,6 +21,7 @@ import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -281,6 +287,218 @@ class LogMaskerTest {
         assertEquals("child", result.path("child").textValue());
         assertEquals("<redacted>", result.path("secret").textValue());
         assertEquals(0, value.secretReads());
+    }
+
+    @Test
+    void nestedContainersApplyGovernanceWithoutModifyingTheirValues() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        LogMasker masker = LogMasker.builder(mapper).build();
+        NestedValue pojo = new NestedValue("pojo", "13800138000");
+        NestedValue listed = new NestedValue("list", "13900139000");
+        NestedValue arrayed = new NestedValue("array", "13700137000");
+        NestedValue mapped = new NestedValue("map", "13600136000");
+        NestedValue wrapped = new NestedValue("wrapper", "13500135000");
+        Map<String, NestedValue> map = new LinkedHashMap<String, NestedValue>();
+        map.put("entry", mapped);
+        NestedContainers value = new NestedContainers(
+                pojo,
+                Arrays.asList(listed),
+                new NestedValue[]{arrayed},
+                map,
+                new GenericWrapper<NestedValue>(wrapped));
+
+        JsonNode result = mapper.readTree(masker.mask(value));
+        BoundedMaskResult bounded = masker.mask(value, 1024);
+        JsonNode boundedResult = mapper.readTree(bounded.getJson());
+
+        assertNestedValue(result.path("pojo"), "pojo", "138****8000");
+        assertNestedValue(result.path("list").path(0), "list", "139****9000");
+        assertNestedValue(result.path("array").path(0), "array", "137****7000");
+        assertNestedValue(result.path("map").path("entry"), "map", "136****6000");
+        assertNestedValue(result.path("wrapper").path("value"), "wrapper", "135****5000");
+        assertEquals(result, boundedResult);
+        for (NestedValue nested : Arrays.asList(pojo, listed, arrayed, mapped, wrapped)) {
+            assertEquals(0, nested.excludedReads);
+            assertEquals(0, nested.redactedReads);
+            assertTrue(nested.phone.startsWith("13"));
+            assertEquals("must-not-be-read", nested.excluded);
+            assertEquals("must-not-be-read", nested.redacted);
+        }
+    }
+
+    @Test
+    void boundedMaskUsesTheFinalUtf8JsonSizeAtExactBoundaries() {
+        ObjectMapper mapper = new ObjectMapper();
+        LogMasker masker = LogMasker.builder(mapper).build();
+
+        BoundedMaskResult ascii = masker.mask("AB", 4);
+        BoundedMaskResult unicode = masker.mask("\u4E2D", 5);
+        BoundedMaskResult emoji = masker.mask("\uD83D\uDE00", 14);
+
+        assertFalse(ascii.isLimitExceeded());
+        assertEquals("\"AB\"", ascii.getJson());
+        assertFalse(unicode.isLimitExceeded());
+        assertEquals("\"\u4E2D\"", unicode.getJson());
+        assertFalse(emoji.isLimitExceeded());
+        assertEquals("\"\\uD83D\\uDE00\"", emoji.getJson());
+
+        BoundedMaskResult asciiExceeded = masker.mask("AB", 3);
+        BoundedMaskResult unicodeExceeded = masker.mask("\u4E2D", 4);
+        BoundedMaskResult emojiExceeded = masker.mask("\uD83D\uDE00", 13);
+
+        assertTrue(asciiExceeded.isLimitExceeded());
+        assertTrue(unicodeExceeded.isLimitExceeded());
+        assertTrue(emojiExceeded.isLimitExceeded());
+        assertThrows(IllegalStateException.class, asciiExceeded::getJson);
+        assertThrows(IllegalStateException.class, unicodeExceeded::getJson);
+        assertThrows(IllegalStateException.class, emojiExceeded::getJson);
+    }
+
+    @Test
+    void boundedMaskStopsBeforeReadingPropertiesAfterTheLimitIsKnown() {
+        ObjectMapper mapper = new ObjectMapper();
+        LogMasker masker = LogMasker.builder(mapper).build();
+        StopsAfterLimitValue value = new StopsAfterLimitValue();
+
+        BoundedMaskResult result = masker.mask(value, 1);
+
+        assertTrue(result.isLimitExceeded());
+        assertEquals(1, value.firstReads);
+        assertEquals(0, value.lateReads);
+    }
+
+    @Test
+    void boundedMaskRejectsNonPositiveLimitsBeforeReadingTheValue() {
+        ObjectMapper mapper = new ObjectMapper();
+        LogMasker masker = LogMasker.builder(mapper).build();
+        StopsAfterLimitValue value = new StopsAfterLimitValue();
+
+        assertThrows(IllegalArgumentException.class, () -> masker.mask(value, 0));
+        assertThrows(IllegalArgumentException.class, () -> masker.mask(value, -1));
+        assertEquals(0, value.firstReads);
+        assertEquals(0, value.lateReads);
+    }
+
+    @Test
+    void unboundedMaskStillReturnsJsonThatExceedsABoundedLimit() {
+        ObjectMapper mapper = new ObjectMapper();
+        LogMasker masker = LogMasker.builder(mapper).build();
+        char[] characters = new char[9000];
+        Arrays.fill(characters, 'x');
+        String value = new String(characters);
+
+        String unbounded = masker.mask(value);
+        BoundedMaskResult bounded = masker.mask(value, 32);
+
+        assertEquals('"' + value + '"', unbounded);
+        assertTrue(bounded.isLimitExceeded());
+    }
+
+    @Test
+    void boundedSerializationFailureThrowsLogMaskExceptionWithTheOriginalRootCause() {
+        ObjectMapper mapper = new ObjectMapper();
+        LogMasker masker = LogMasker.builder(mapper).build();
+        IllegalStateException failure = new IllegalStateException("expected bounded failure");
+
+        LogMaskException thrown = assertThrows(
+                LogMaskException.class,
+                () -> masker.mask(new FailingValue(failure), 1024));
+
+        assertSame(failure, rootCause(thrown));
+    }
+
+    @Test
+    void boundedCallsKeepResultsLimitsAndDiagnosticsIsolatedAcrossThreads() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        LogMasker masker = LogMasker.builder(mapper)
+                .strategyRegistry(MaskStrategyRegistry.of(
+                        Collections.singletonList(new FailingMaskDefinition())))
+                .build();
+        ExecutorService callers = Executors.newFixedThreadPool(8);
+        try (LogCapture diagnostics = new LogCapture()) {
+            List<Callable<Void>> tasks = new ArrayList<Callable<Void>>();
+            for (int index = 0; index < 96; index++) {
+                final int valueIndex = index;
+                tasks.add(new Callable<Void>() {
+                    @Override
+                    public Void call() throws Exception {
+                        if (valueIndex % 3 == 0) {
+                            BoundedMaskResult result = masker.mask(
+                                    new ConcurrentValue(valueIndex),
+                                    64);
+                            JsonNode json = mapper.readTree(result.getJson());
+                            assertEquals(valueIndex, json.path("id").intValue());
+                            assertEquals("<redacted>", json.path("secret").textValue());
+                        } else if (valueIndex % 3 == 1) {
+                            assertTrue(masker.mask(
+                                    new ConcurrentValue(valueIndex),
+                                    1).isLimitExceeded());
+                        } else {
+                            BoundedMaskResult result = masker.mask(new FailingCustomValue(), 64);
+                            assertEquals(
+                                    "<redacted>",
+                                    mapper.readTree(result.getJson()).path("secret").textValue());
+                        }
+                        return null;
+                    }
+                });
+            }
+
+            List<Future<Void>> results = callers.invokeAll(tasks);
+            for (Future<Void> result : results) {
+                result.get();
+            }
+
+            assertEquals(1, diagnostics.events().size());
+            assertTrue(diagnostics.events().get(0).getFormattedMessage().contains("strategy_failed"));
+            assertFalse(diagnostics.events().get(0).getFormattedMessage().contains("must-not-appear"));
+        } finally {
+            callers.shutdownNow();
+        }
+    }
+
+    @Test
+    void maskingDoesNotCloseInputWhenTheApplicationMapperClosesSerializedValues() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.enable(SerializationFeature.CLOSE_CLOSEABLE);
+        LogMasker masker = LogMasker.builder(mapper).build();
+        CloseableValue unbounded = new CloseableValue(null);
+        CloseableValue bounded = new CloseableValue(null);
+        CloseableValue exceeded = new CloseableValue(null);
+        IllegalStateException failure = new IllegalStateException("expected closeable failure");
+        CloseableValue unboundedFailed = new CloseableValue(failure);
+        CloseableValue failed = new CloseableValue(failure);
+
+        assertEquals("{\"value\":\"value\"}", masker.mask(unbounded));
+        assertEquals("{\"value\":\"value\"}", masker.mask(bounded, 64).getJson());
+        assertTrue(masker.mask(exceeded, 1).isLimitExceeded());
+        assertThrows(LogMaskException.class, () -> masker.mask(unboundedFailed));
+        assertThrows(LogMaskException.class, () -> masker.mask(failed, 64));
+
+        assertFalse(unbounded.closed);
+        assertFalse(bounded.closed);
+        assertFalse(exceeded.closed);
+        assertFalse(unboundedFailed.closed);
+        assertFalse(failed.closed);
+    }
+
+    @Test
+    void boundedMaskPreservesJacksonBulkArrayRepresentations() {
+        ObjectMapper mapper = new ObjectMapper();
+        LogMasker masker = LogMasker.builder(mapper).build();
+
+        assertEquals("[1,2,3]", masker.mask(new int[]{1, 2, 3}, 7).getJson());
+        assertEquals("[1,2]", masker.mask(new long[]{1L, 2L}, 5).getJson());
+        assertEquals("[1.5,2.5]", masker.mask(new double[]{1.5D, 2.5D}, 9).getJson());
+        assertEquals("[\"a\",\"b\"]", masker.mask(new String[]{"a", "b"}, 9).getJson());
+        assertTrue(masker.mask(new int[]{1, 2, 3}, 6).isLimitExceeded());
+    }
+
+    private static void assertNestedValue(JsonNode result, String plain, String phone) {
+        assertEquals(plain, result.path("plain").textValue());
+        assertEquals(phone, result.path("phone").textValue());
+        assertEquals("<redacted>", result.path("redacted").textValue());
+        assertFalse(result.has("excluded"));
     }
 
     @Test
@@ -671,6 +889,131 @@ class LogMaskerTest {
 
         public String getFailure() {
             throw failure;
+        }
+    }
+
+    private static final class CloseableValue implements Closeable {
+        private final RuntimeException failure;
+        private boolean closed;
+
+        private CloseableValue(RuntimeException failure) {
+            this.failure = failure;
+        }
+
+        public String getValue() {
+            if (failure != null) {
+                throw failure;
+            }
+            return "value";
+        }
+
+        @Override
+        public void close() throws IOException {
+            closed = true;
+        }
+    }
+
+    @JsonPropertyOrder({"first", "late"})
+    private static final class StopsAfterLimitValue {
+        private int firstReads;
+        private int lateReads;
+
+        public String getFirst() {
+            firstReads++;
+            return "first";
+        }
+
+        public String getLate() {
+            lateReads++;
+            return "late";
+        }
+    }
+
+    private static final class NestedContainers {
+        private final NestedValue pojo;
+        private final List<NestedValue> list;
+        private final NestedValue[] array;
+        private final Map<String, NestedValue> map;
+        private final GenericWrapper<NestedValue> wrapper;
+
+        private NestedContainers(
+                NestedValue pojo,
+                List<NestedValue> list,
+                NestedValue[] array,
+                Map<String, NestedValue> map,
+                GenericWrapper<NestedValue> wrapper) {
+            this.pojo = pojo;
+            this.list = list;
+            this.array = array;
+            this.map = map;
+            this.wrapper = wrapper;
+        }
+
+        public NestedValue getPojo() {
+            return pojo;
+        }
+
+        public List<NestedValue> getList() {
+            return list;
+        }
+
+        public NestedValue[] getArray() {
+            return array;
+        }
+
+        public Map<String, NestedValue> getMap() {
+            return map;
+        }
+
+        public GenericWrapper<NestedValue> getWrapper() {
+            return wrapper;
+        }
+    }
+
+    private static final class GenericWrapper<T> {
+        private final T value;
+
+        private GenericWrapper(T value) {
+            this.value = value;
+        }
+
+        public T getValue() {
+            return value;
+        }
+    }
+
+    private static final class NestedValue {
+        private final String plain;
+        private final String phone;
+        private final String excluded = "must-not-be-read";
+        private final String redacted = "must-not-be-read";
+        private int excludedReads;
+        private int redactedReads;
+
+        private NestedValue(String plain, String phone) {
+            this.plain = plain;
+            this.phone = phone;
+        }
+
+        public String getPlain() {
+            return plain;
+        }
+
+        @Mask(type = MaskType.PHONE)
+        public String getPhone() {
+            return phone;
+        }
+
+        @LogExclude
+        public String getExcluded() {
+            excludedReads++;
+            return excluded;
+        }
+
+        @Mask(type = MaskType.REDACT)
+        public String getRedacted() {
+            redactedReads++;
+            return redacted;
         }
     }
 

@@ -1,10 +1,13 @@
 package io.github.summerwenlabs.log.mask;
 
+import java.io.IOException;
 import java.util.Objects;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 /**
  * Thread-safe generator of JSON representations intended only for logging.
@@ -15,6 +18,7 @@ public final class LogMasker {
 
     private LogMasker(ObjectMapper objectMapper, MaskStrategyRegistry strategyRegistry) {
         ObjectMapper safeObjectMapper = objectMapper.copy();
+        safeObjectMapper.disable(SerializationFeature.CLOSE_CLOSEABLE);
         MaskingDiagnostics diagnostics = new MaskingDiagnostics();
         safeObjectMapper.setSerializerFactory(
                 safeObjectMapper.getSerializerFactory()
@@ -34,6 +38,58 @@ public final class LogMasker {
             return writer.writeValueAsString(value);
         } catch (JsonProcessingException | RuntimeException exception) {
             throw new LogMaskException("Unable to generate a safe object representation", exception);
+        }
+    }
+
+    /**
+     * Generates a complete safe JSON representation within a UTF-8 byte limit.
+     *
+     * @param value value to represent
+     * @param maxUtf8Bytes maximum permitted size of the final JSON, in UTF-8 bytes
+     * @return a complete JSON result, or a limit-exceeded result without partial JSON
+     * @throws IllegalArgumentException if {@code maxUtf8Bytes} is less than one
+     * @throws LogMaskException if the value cannot be serialized
+     */
+    public BoundedMaskResult mask(Object value, int maxUtf8Bytes) {
+        if (maxUtf8Bytes < 1) {
+            throw new IllegalArgumentException("maxUtf8Bytes must be at least 1");
+        }
+        BoundedUtf8OutputStream output = new BoundedUtf8OutputStream(maxUtf8Bytes);
+        BoundedJsonGenerator generator = null;
+        Throwable failure = null;
+        try {
+            generator = new BoundedJsonGenerator(writer.createGenerator(output), output);
+            writer.writeValue(generator, value);
+            generator.flush();
+            return BoundedMaskResult.complete(output.toUtf8String());
+        } catch (IOException | RuntimeException exception) {
+            failure = exception;
+            if (output.isLimitExceeded()) {
+                return BoundedMaskResult.limitExceeded();
+            }
+            throw new LogMaskException("Unable to generate a safe object representation", exception);
+        } finally {
+            closeGenerator(generator, output, failure);
+        }
+    }
+
+    private void closeGenerator(
+            BoundedJsonGenerator generator,
+            BoundedUtf8OutputStream output,
+            Throwable failure) {
+        if (generator == null) {
+            return;
+        }
+        output.discardFurtherWrites();
+        generator.disable(JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT);
+        try {
+            generator.close();
+        } catch (IOException | RuntimeException closeFailure) {
+            if (failure != null) {
+                failure.addSuppressed(closeFailure);
+                return;
+            }
+            throw new LogMaskException("Unable to generate a safe object representation", closeFailure);
         }
     }
 
