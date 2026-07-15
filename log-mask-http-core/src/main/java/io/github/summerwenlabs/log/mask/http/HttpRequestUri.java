@@ -40,6 +40,26 @@ public final class HttpRequestUri {
     }
 
     public static HttpRequestUri from(URI requestUri) {
+        return from(
+                requestUri,
+                path(Objects.requireNonNull(requestUri, "requestUri")),
+                false);
+    }
+
+    static HttpRequestUri fromGovernedPath(
+            URI requestUri,
+            String governedPath,
+            boolean pathFallbackApplied) {
+        return from(
+                requestUri,
+                Objects.requireNonNull(governedPath, "governedPath"),
+                pathFallbackApplied);
+    }
+
+    private static HttpRequestUri from(
+            URI requestUri,
+            String governedPath,
+            boolean pathFallbackApplied) {
         Objects.requireNonNull(requestUri, "requestUri");
         boolean processed = isProcessableHttpUri(requestUri);
         String scheme = normalize(requestUri.getScheme());
@@ -48,19 +68,26 @@ public final class HttpRequestUri {
         int port = processed
                 ? (explicitPort >= 0 ? explicitPort : defaultPort(scheme))
                 : fallbackPort(requestUri, scheme);
-        String path = path(requestUri);
+        String path = governedPath;
         String rawQuery = requestUri.getRawQuery();
         String full = processed
                 ? rebuildHttpUri(requestUri, scheme, host, path, rawQuery)
                 : rebuildFallbackUri(requestUri, scheme, host, path, rawQuery);
         return new HttpRequestUri(
-                processed ? RegionState.SUCCESS : RegionState.PROCESSING_FAILED,
+                state(processed, pathFallbackApplied),
                 full,
                 scheme,
                 host,
                 port,
                 path,
                 parseQuery(rawQuery));
+    }
+
+    private static RegionState state(boolean processed, boolean fallbackApplied) {
+        if (!processed) {
+            return RegionState.PROCESSING_FAILED;
+        }
+        return fallbackApplied ? RegionState.FALLBACK_APPLIED : RegionState.SUCCESS;
     }
 
     private static String rebuildHttpUri(

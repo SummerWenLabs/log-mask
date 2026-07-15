@@ -1,7 +1,8 @@
 package io.github.summerwenlabs.log.mask;
 
 /**
- * One dependency-aware custom content masking strategy registered under an exact code.
+ * One String content masking strategy.
+ * Application-defined instances are registered under an exact custom code.
  */
 public interface MaskTypeDefinition {
 
