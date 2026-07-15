@@ -1,8 +1,10 @@
 package io.github.summerwenlabs.log.mask.http;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
@@ -22,16 +24,109 @@ class HttpExchangeEventWriterTest {
     private final HttpExchangeEventWriter writer = new HttpExchangeEventWriter();
 
     @Test
+    void writesTheCanonicalNameValueModelInStandardAndCompactShapes() throws Exception {
+        NameValueCollection headers = NameValueCollection.builder()
+                .add("x-tag", "one")
+                .add("x-empty", "")
+                .add("x-tag", "two")
+                .build();
+        HttpExchangeRequest request = HttpExchangeRequest.builder()
+                .method("GET")
+                .uri(HttpRequestUri.from(URI.create(
+                        "https://api.example.com/items?a=1&b=2&a=3&flag")))
+                .headers(RegionState.SUCCESS, headers)
+                .body(RegionState.SUCCESS, JsonValue.nullValue())
+                .build();
+        HttpExchangeEvent event = HttpExchangeEvent.builder()
+                .timestamp(Instant.EPOCH)
+                .exchangeId(UUID.fromString("4e19966c-d3cb-4fc2-b193-41d27c2fce80"))
+                .durationMs(0)
+                .governanceEnabled(true)
+                .request(request)
+                .build();
+
+        JsonNode standard = objectMapper.readTree(writer.write(event));
+        JsonNode compact = objectMapper.readTree(
+                new HttpExchangeEventWriter(NameValueShape.COMPACT, true).write(event));
+        JsonNode standardQuery = standard.path("request").path("uri").path("query");
+        JsonNode standardHeaders = standard.path("request").path("headers");
+        JsonNode compactQuery = compact.path("request").path("uri").path("query");
+        JsonNode compactHeaders = compact.path("request").path("headers");
+
+        assertEquals(
+                Arrays.asList("a", "b", "flag"),
+                Arrays.asList(
+                        standardQuery.get(0).path("name").textValue(),
+                        standardQuery.get(1).path("name").textValue(),
+                        standardQuery.get(2).path("name").textValue()));
+        assertEquals(
+                Arrays.asList("1", "3"),
+                objectMapper.convertValue(
+                        standardQuery.get(0).path("values"),
+                        List.class));
+        assertTrue(standardQuery.get(2).path("values").get(0).isNull());
+        assertEquals("x-tag", standardHeaders.get(0).path("name").textValue());
+        assertEquals(
+                Arrays.asList("a", "b", "flag"),
+                fieldNames(compactQuery));
+        assertEquals(
+                Arrays.asList("1", "3"),
+                objectMapper.convertValue(
+                        compactQuery.path("a"),
+                        List.class));
+        assertEquals(
+                Arrays.asList("x-tag", "x-empty"),
+                fieldNames(compactHeaders));
+    }
+
+    @Test
+    void writesEmptyShapesAndCanOmitOnlyUriDetails() throws Exception {
+        HttpExchangeRequest request = HttpExchangeRequest.builder()
+                .method("GET")
+                .uri(HttpRequestUri.from(URI.create("https://api.example.com/?")))
+                .headers(RegionState.SUCCESS, emptyNameValues())
+                .body(RegionState.SUCCESS, JsonValue.nullValue())
+                .build();
+        HttpExchangeEvent event = HttpExchangeEvent.builder()
+                .timestamp(Instant.EPOCH)
+                .exchangeId(UUID.fromString("5ca8766a-56f0-4105-b4e0-85e9a17bed53"))
+                .durationMs(0)
+                .governanceEnabled(true)
+                .request(request)
+                .build();
+
+        JsonNode standard = objectMapper.readTree(writer.write(event));
+        JsonNode compactWithoutDetails = objectMapper.readTree(
+                new HttpExchangeEventWriter(NameValueShape.COMPACT, false).write(event));
+        JsonNode standardRequest = standard.path("request");
+        JsonNode compactRequest = compactWithoutDetails.path("request");
+        JsonNode compactUri = compactRequest.path("uri");
+
+        assertTrue(standardRequest.path("uri").path("query").isArray());
+        assertEquals(0, standardRequest.path("uri").path("query").size());
+        assertTrue(standardRequest.path("headers").isArray());
+        assertEquals(0, standardRequest.path("headers").size());
+        assertEquals(
+                Collections.singletonList("full"),
+                fieldNames(compactUri));
+        assertEquals(
+                "https://api.example.com/?",
+                compactUri.path("full").textValue());
+        assertTrue(compactRequest.path("headers").isObject());
+        assertEquals(0, compactRequest.path("headers").size());
+    }
+
+    @Test
     void writesACompleteSchemaVersionOneEventAsCompactJson() throws Exception {
         HttpExchangeRequest request = HttpExchangeRequest.builder()
                 .method("POST")
-                .uri(RegionState.SUCCESS, JsonValue.ofJson("{\"full\":\"https://api.example.com/users\"}"))
-                .headers(RegionState.SUCCESS, JsonValue.ofJson("[]"))
+                .uri(HttpRequestUri.from(URI.create("https://api.example.com/users")))
+                .headers(RegionState.SUCCESS, emptyNameValues())
                 .body(RegionState.SUCCESS, JsonValue.ofJson("{\"name\":\"Ada\"}"))
                 .build();
         HttpExchangeResponse response = HttpExchangeResponse.builder()
                 .status(200)
-                .headers(RegionState.SUCCESS, JsonValue.ofJson("[]"))
+                .headers(RegionState.SUCCESS, emptyNameValues())
                 .body(RegionState.SUCCESS, JsonValue.ofJson("{\"id\":1001}"))
                 .build();
         HttpExchangeEvent event = HttpExchangeEvent.builder()
@@ -82,8 +177,8 @@ class HttpExchangeEventWriterTest {
     void writesARequestOnlyEventWithExplicitNulls() throws Exception {
         HttpExchangeRequest request = HttpExchangeRequest.builder()
                 .method("GET")
-                .uri(RegionState.SUCCESS, JsonValue.ofJson("{\"full\":\"https://api.example.com/health\"}"))
-                .headers(RegionState.DISABLED, JsonValue.nullValue())
+                .uri(HttpRequestUri.from(URI.create("https://api.example.com/health")))
+                .headers(RegionState.DISABLED, null)
                 .body(RegionState.SUCCESS, JsonValue.ofJson("null"))
                 .build();
         HttpExchangeEvent event = HttpExchangeEvent.builder()
@@ -113,8 +208,8 @@ class HttpExchangeEventWriterTest {
                     : JsonValue.ofJson("\"value\"");
             HttpExchangeRequest request = HttpExchangeRequest.builder()
                     .method("POST")
-                    .uri(RegionState.SUCCESS, JsonValue.ofJson("{\"full\":\"https://api.example.com\"}"))
-                    .headers(RegionState.SUCCESS, JsonValue.ofJson("[]"))
+                    .uri(HttpRequestUri.from(URI.create("https://api.example.com")))
+                    .headers(RegionState.SUCCESS, emptyNameValues())
                     .body(state, bodyValue)
                     .build();
             HttpExchangeEvent event = HttpExchangeEvent.builder()
@@ -133,11 +228,8 @@ class HttpExchangeEventWriterTest {
 
     @Test
     void rejectsLimitExceededOutsideBodyRegions() {
-        JsonValue value = JsonValue.ofJson("null");
+        NameValueCollection value = emptyNameValues();
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> HttpExchangeRequest.builder().uri(RegionState.LIMIT_EXCEEDED, value));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> HttpExchangeRequest.builder().headers(RegionState.LIMIT_EXCEEDED, value));
@@ -159,17 +251,22 @@ class HttpExchangeEventWriterTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> HttpExchangeResponse.builder().body(RegionState.DISABLED, disclosed));
+        NameValueCollection disclosedHeaders = NameValueCollection.builder()
+                .add("secret", "value")
+                .build();
         assertThrows(
                 IllegalArgumentException.class,
-                () -> HttpExchangeRequest.builder().headers(RegionState.DISABLED, disclosed));
+                () -> HttpExchangeRequest.builder().headers(
+                        RegionState.DISABLED,
+                        disclosedHeaders));
     }
 
     @Test
     void compactsValidatedNestedJsonValues() {
         HttpExchangeRequest request = HttpExchangeRequest.builder()
                 .method("GET")
-                .uri(RegionState.SUCCESS, JsonValue.ofJson("{\n  \"full\" : \"https://api.example.com\"\n}"))
-                .headers(RegionState.SUCCESS, JsonValue.ofJson("[  ]"))
+                .uri(HttpRequestUri.from(URI.create("https://api.example.com")))
+                .headers(RegionState.SUCCESS, emptyNameValues())
                 .body(RegionState.SUCCESS, JsonValue.ofJson("null"))
                 .build();
         HttpExchangeEvent event = HttpExchangeEvent.builder()
@@ -183,7 +280,8 @@ class HttpExchangeEventWriterTest {
         String json = writer.write(event);
 
         assertFalse(json.contains("\n"));
-        assertTrue(json.contains("\"uri\":{\"full\":\"https://api.example.com\"}"));
+        assertTrue(json.contains(
+                "\"uri\":{\"full\":\"https://api.example.com\",\"scheme\":\"https\""));
         assertTrue(json.contains("\"headers\":[]"));
     }
 
@@ -198,8 +296,8 @@ class HttpExchangeEventWriterTest {
     void rejectsNegativeDurationAndNonVersionFourExchangeIds() {
         HttpExchangeRequest request = HttpExchangeRequest.builder()
                 .method("GET")
-                .uri(RegionState.SUCCESS, JsonValue.ofJson("{\"full\":\"https://api.example.com\"}"))
-                .headers(RegionState.SUCCESS, JsonValue.ofJson("[]"))
+                .uri(HttpRequestUri.from(URI.create("https://api.example.com")))
+                .headers(RegionState.SUCCESS, emptyNameValues())
                 .body(RegionState.SUCCESS, JsonValue.ofJson("null"))
                 .build();
 
@@ -230,6 +328,10 @@ class HttpExchangeEventWriterTest {
             names.add(fields.next());
         }
         return names;
+    }
+
+    private static NameValueCollection emptyNameValues() {
+        return NameValueCollection.builder().build();
     }
 
     private static boolean requiresEmptyBody(RegionState state) {

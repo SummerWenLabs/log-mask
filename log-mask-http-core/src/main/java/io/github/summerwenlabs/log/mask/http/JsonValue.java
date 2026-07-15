@@ -59,7 +59,4 @@ public final class JsonValue {
         return "\"\"".equals(json);
     }
 
-    boolean isNull() {
-        return "null".equals(json);
-    }
 }

@@ -2,41 +2,39 @@ package io.github.summerwenlabs.log.mask.http;
 
 import java.util.Objects;
 
-final class RegionValue {
+final class RegionValue<T> {
 
     private final RegionState state;
-    private final JsonValue value;
+    private final T value;
 
-    private RegionValue(RegionState state, JsonValue value) {
+    private RegionValue(RegionState state, T value) {
         this.state = state;
         this.value = value;
     }
 
-    static RegionValue uri(RegionState state, JsonValue value) {
-        return create(RegionKind.URI, state, value);
-    }
-
-    static RegionValue headers(RegionState state, JsonValue value) {
-        return create(RegionKind.HEADERS, state, value);
-    }
-
-    static RegionValue body(RegionState state, JsonValue value) {
-        return create(RegionKind.BODY, state, value);
-    }
-
-    private static RegionValue create(RegionKind region, RegionState state, JsonValue value) {
-        Objects.requireNonNull(state, region.label + " state");
-        Objects.requireNonNull(value, region.label + " value");
-        if (region != RegionKind.BODY && state == RegionState.LIMIT_EXCEEDED) {
+    static RegionValue<NameValueCollection> headers(
+            RegionState state,
+            NameValueCollection value) {
+        Objects.requireNonNull(state, "headers state");
+        if (state == RegionState.LIMIT_EXCEEDED) {
             throw new IllegalArgumentException("LIMIT_EXCEEDED is only valid for body regions");
         }
-        if (region == RegionKind.BODY && requiresEmptyBody(state) && !value.isEmptyString()) {
+        if (state == RegionState.DISABLED && value != null) {
+            throw new IllegalArgumentException("DISABLED headers must be null");
+        }
+        if (state != RegionState.DISABLED) {
+            Objects.requireNonNull(value, "headers value");
+        }
+        return new RegionValue<NameValueCollection>(state, value);
+    }
+
+    static RegionValue<JsonValue> body(RegionState state, JsonValue value) {
+        Objects.requireNonNull(state, "body state");
+        Objects.requireNonNull(value, "body value");
+        if (requiresEmptyBody(state) && !value.isEmptyString()) {
             throw new IllegalArgumentException(state + " body must be an empty JSON string");
         }
-        if (region == RegionKind.HEADERS && state == RegionState.DISABLED && !value.isNull()) {
-            throw new IllegalArgumentException("DISABLED headers must be JSON null");
-        }
-        return new RegionValue(state, value);
+        return new RegionValue<JsonValue>(state, value);
     }
 
     private static boolean requiresEmptyBody(RegionState state) {
@@ -49,19 +47,7 @@ final class RegionValue {
         return state;
     }
 
-    JsonValue value() {
+    T value() {
         return value;
-    }
-
-    private enum RegionKind {
-        URI("uri"),
-        HEADERS("headers"),
-        BODY("body");
-
-        private final String label;
-
-        RegionKind(String label) {
-            this.label = label;
-        }
     }
 }

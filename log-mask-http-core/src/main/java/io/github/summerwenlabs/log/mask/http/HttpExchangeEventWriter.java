@@ -19,6 +19,17 @@ public final class HttpExchangeEventWriter {
             new DateTimeFormatterBuilder().appendInstant(3).toFormatter();
 
     private final JsonFactory jsonFactory = new JsonFactory();
+    private final NameValueShape nameValueShape;
+    private final boolean uriDetailsEnabled;
+
+    public HttpExchangeEventWriter() {
+        this(NameValueShape.STANDARD, true);
+    }
+
+    public HttpExchangeEventWriter(NameValueShape nameValueShape, boolean uriDetailsEnabled) {
+        this.nameValueShape = Objects.requireNonNull(nameValueShape, "nameValueShape");
+        this.uriDetailsEnabled = uriDetailsEnabled;
+    }
 
     public String write(HttpExchangeEvent event) {
         Objects.requireNonNull(event, "event");
@@ -51,9 +62,9 @@ public final class HttpExchangeEventWriter {
         generator.writeObjectFieldStart("request");
         generator.writeStringField("method", request.getMethod());
         generator.writeStringField("uriState", request.getUriState().name());
-        writeJsonField(generator, "uri", request.getUri());
+        writeUri(generator, request.getUri());
         generator.writeStringField("headersState", request.getHeadersState().name());
-        writeJsonField(generator, "headers", request.getHeaders());
+        writeNameValueField(generator, "headers", request.getHeaders());
         generator.writeStringField("bodyState", request.getBodyState().name());
         writeJsonField(generator, "body", request.getBody());
         generator.writeEndObject();
@@ -67,7 +78,7 @@ public final class HttpExchangeEventWriter {
         generator.writeObjectFieldStart("response");
         generator.writeNumberField("status", response.getStatus());
         generator.writeStringField("headersState", response.getHeadersState().name());
-        writeJsonField(generator, "headers", response.getHeaders());
+        writeNameValueField(generator, "headers", response.getHeaders());
         generator.writeStringField("bodyState", response.getBodyState().name());
         writeJsonField(generator, "body", response.getBody());
         generator.writeEndObject();
@@ -76,5 +87,84 @@ public final class HttpExchangeEventWriter {
     private void writeJsonField(JsonGenerator generator, String name, JsonValue value) throws IOException {
         generator.writeFieldName(name);
         value.writeTo(generator);
+    }
+
+    private void writeUri(JsonGenerator generator, HttpRequestUri uri) throws IOException {
+        generator.writeObjectFieldStart("uri");
+        generator.writeStringField("full", uri.getFull());
+        if (uriDetailsEnabled) {
+            writeNullableStringField(generator, "scheme", uri.getScheme());
+            writeNullableStringField(generator, "host", uri.getHost());
+            if (uri.getPort() < 0) {
+                generator.writeNullField("port");
+            } else {
+                generator.writeNumberField("port", uri.getPort());
+            }
+            generator.writeStringField("path", uri.getPath());
+            writeNameValueField(generator, "query", uri.getQuery());
+        }
+        generator.writeEndObject();
+    }
+
+    private void writeNullableStringField(JsonGenerator generator, String name, String value)
+            throws IOException {
+        if (value == null) {
+            generator.writeNullField(name);
+        } else {
+            generator.writeStringField(name, value);
+        }
+    }
+
+    private void writeNameValueField(
+            JsonGenerator generator,
+            String fieldName,
+            NameValueCollection collection) throws IOException {
+        if (collection == null) {
+            generator.writeNullField(fieldName);
+            return;
+        }
+        generator.writeFieldName(fieldName);
+        if (nameValueShape == NameValueShape.STANDARD) {
+            writeStandardNameValues(generator, collection);
+        } else {
+            writeCompactNameValues(generator, collection);
+        }
+    }
+
+    private void writeStandardNameValues(
+            JsonGenerator generator,
+            NameValueCollection collection) throws IOException {
+        generator.writeStartArray();
+        for (NameValueEntry entry : collection.getEntries()) {
+            generator.writeStartObject();
+            generator.writeStringField("name", entry.getName());
+            generator.writeArrayFieldStart("values");
+            writeValues(generator, entry);
+            generator.writeEndArray();
+            generator.writeEndObject();
+        }
+        generator.writeEndArray();
+    }
+
+    private void writeCompactNameValues(
+            JsonGenerator generator,
+            NameValueCollection collection) throws IOException {
+        generator.writeStartObject();
+        for (NameValueEntry entry : collection.getEntries()) {
+            generator.writeArrayFieldStart(entry.getName());
+            writeValues(generator, entry);
+            generator.writeEndArray();
+        }
+        generator.writeEndObject();
+    }
+
+    private void writeValues(JsonGenerator generator, NameValueEntry entry) throws IOException {
+        for (String value : entry.getValues()) {
+            if (value == null) {
+                generator.writeNull();
+            } else {
+                generator.writeString(value);
+            }
+        }
     }
 }

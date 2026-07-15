@@ -6,8 +6,8 @@ package io.github.summerwenlabs.log.mask.http;
 public final class HttpExchangeResponse {
 
     private final int status;
-    private final RegionValue headers;
-    private final RegionValue body;
+    private final RegionValue<NameValueCollection> headers;
+    private final RegionValue<JsonValue> body;
 
     private HttpExchangeResponse(Builder builder) {
         if (builder.status == null) {
@@ -30,7 +30,7 @@ public final class HttpExchangeResponse {
         return headers.state();
     }
 
-    public JsonValue getHeaders() {
+    public NameValueCollection getHeaders() {
         return headers.value();
     }
 
@@ -42,7 +42,7 @@ public final class HttpExchangeResponse {
         return body.value();
     }
 
-    private static RegionValue requireRegion(RegionValue value, String name) {
+    private static <T> RegionValue<T> requireRegion(RegionValue<T> value, String name) {
         if (value == null) {
             throw new IllegalStateException(name + " must be configured");
         }
@@ -51,8 +51,8 @@ public final class HttpExchangeResponse {
 
     public static final class Builder {
         private Integer status;
-        private RegionValue headers;
-        private RegionValue body;
+        private RegionValue<NameValueCollection> headers;
+        private RegionValue<JsonValue> body;
 
         private Builder() {
         }
@@ -62,7 +62,7 @@ public final class HttpExchangeResponse {
             return this;
         }
 
-        public Builder headers(RegionState state, JsonValue value) {
+        public Builder headers(RegionState state, NameValueCollection value) {
             this.headers = RegionValue.headers(state, value);
             return this;
         }
