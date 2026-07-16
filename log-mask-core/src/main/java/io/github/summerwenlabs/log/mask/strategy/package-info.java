@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 /**
  * Defines and registers built-in and application-defined masking strategies.
  *

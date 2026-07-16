@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 /**
  * Declares field-level governance for log-only JSON representations.
  *

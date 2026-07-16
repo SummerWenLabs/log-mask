@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 /**
  * Provides shared HTTP name/value and region-state vocabulary.
  *

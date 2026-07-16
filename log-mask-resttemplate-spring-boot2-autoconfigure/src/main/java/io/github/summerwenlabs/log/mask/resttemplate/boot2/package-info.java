@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 /**
  * Public contracts for selecting Spring Boot 2 RestTemplate instances for
  * HTTP exchange observation.

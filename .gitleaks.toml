@@ -1,0 +1,10 @@
+title = "log-mask secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Maven-generated build output"
+paths = [
+  '''(^|/)target/''',
+]

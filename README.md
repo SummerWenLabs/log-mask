@@ -4,6 +4,8 @@
 
 支持 Java 8、Spring Boot 2.6.15 与 2.7.18。Java 8 是编译和字节码目标；Spring Boot 3、WebClient、Feign、其他 HTTP 客户端和通用日志参数拦截不在 v1 范围内。
 
+安全漏洞请按 [SECURITY.md](SECURITY.md) 中的私密报告流程提交。
+
 ## 快速开始
 
 引入 starter：
@@ -162,4 +164,7 @@ pwsh ./scripts/verify-quality-gates.ps1
 mvn -Pbenchmarks -pl log-mask-benchmarks -am clean package
 ```
 
-CI 在 Boot 2.6.15/2.7.18 与 JDK 8/11/17 的六个组合中从干净工作区运行上述默认验证，并检查 Java 8 class 文件、模块单向依赖、core/http-core 的 Spring 依赖图，以及 Apache、OkHttp、Netty 等 HTTP transport 和连接池依赖禁令。性能基准不设跨机器绝对阈值，结果只在相同环境内比较。
+质量脚本还检查 Apache-2.0 SPDX 源码头，并在
+`target/generated-sources/license/THIRD-PARTY.txt` 生成传递生产依赖的许可证报告；任何缺少许可证声明的依赖都会使门禁失败。
+
+CI 在 Boot 2.6.15/2.7.18 与 JDK 8/11/17 的六个组合中从干净工作区运行上述默认验证，并检查 Java 8 class 文件、模块单向依赖、core/http-core 的 Spring 依赖图，以及 Apache、OkHttp、Netty 等 HTTP transport 和连接池依赖禁令。CI 还会扫描完整 Git 历史中的已知密钥格式。性能基准不设跨机器绝对阈值，结果只在相同环境内比较。

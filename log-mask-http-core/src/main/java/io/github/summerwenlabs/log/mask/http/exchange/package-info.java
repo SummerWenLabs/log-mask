@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 /**
  * Provides immutable HTTP exchange events and their JSON rendering contract.
  *

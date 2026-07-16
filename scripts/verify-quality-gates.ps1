@@ -1,5 +1,6 @@
 param(
-    [string]$RepositoryRoot = (Split-Path -Parent $PSScriptRoot)
+    [string]$RepositoryRoot = (Split-Path -Parent $PSScriptRoot),
+    [string]$SpringBootVersion = '2.7.18'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -65,6 +66,41 @@ function Assert-Java8Bytecode {
     }
 }
 
+function Assert-ApacheLicenseHeaders {
+    $header = 'SPDX-License-Identifier: Apache-2.0'
+    $javaFiles = @(git -C $RepositoryRoot ls-files --cached --others `
+        --exclude-standard -- '*.java')
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to enumerate Java sources.'
+    }
+    foreach ($relativePath in $javaFiles) {
+        $path = Join-Path $RepositoryRoot $relativePath
+        $firstLine = Get-Content -LiteralPath $path -TotalCount 1
+        if ($firstLine -ne "/* $header */") {
+            throw "$relativePath is missing the Apache-2.0 SPDX header."
+        }
+    }
+}
+
+function Assert-DependencyLicenses {
+    $pomPath = Join-Path $RepositoryRoot 'pom.xml'
+    & mvn -B -ntp -f $pomPath `
+        org.codehaus.mojo:license-maven-plugin:2.4.0:aggregate-add-third-party `
+        '-Dlicense.excludedScopes=test' `
+        '-Dlicense.failOnMissing=true' `
+        '-Dlicense.force=true' `
+        '-Dlicense.sortArtifactByName=true' `
+        "-Dspring-boot.version=$SpringBootVersion"
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Dependency license report generation failed.'
+    }
+    $reportPath = Join-Path $RepositoryRoot `
+        'target/generated-sources/license/THIRD-PARTY.txt'
+    if (-not (Test-Path -LiteralPath $reportPath)) {
+        throw 'Dependency license report was not generated.'
+    }
+}
+
 Assert-ProjectDependencies 'log-mask-core' @()
 Assert-ProjectDependencies 'log-mask-http-core' @('io.github.summerwenlabs:log-mask-core')
 Assert-ProjectDependencies 'log-mask-resttemplate-spring-boot2-autoconfigure' @(
@@ -84,5 +120,7 @@ Assert-NoSpringDependencies 'log-mask-http-core'
 Assert-NoSpringImports 'log-mask-core'
 Assert-NoSpringImports 'log-mask-http-core'
 Assert-Java8Bytecode
+Assert-ApacheLicenseHeaders
+Assert-DependencyLicenses
 
-Write-Host 'Quality gates passed: module boundaries, Spring-free cores, and Java 8 bytecode.'
+Write-Host 'Quality gates passed: dependencies, licenses, Spring-free cores, and Java 8 bytecode.'

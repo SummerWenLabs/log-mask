@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 package io.github.summerwenlabs.log.mask.resttemplate.boot2.autoconfigure;
 
 import java.io.ByteArrayOutputStream;

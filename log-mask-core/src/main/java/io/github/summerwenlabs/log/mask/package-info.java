@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 /**
  * Generates safe, log-only JSON representations without changing application
  * serialization.

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 package io.github.summerwenlabs.log.mask.strategy;
 
 import io.github.summerwenlabs.log.mask.governance.MaskType;

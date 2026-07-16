@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 /**
  * Reproducible JMH measurements for RestTemplate observation scenarios.
  *

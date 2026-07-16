@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 /**
  * Spring Boot 2 auto-configuration for RestTemplate HTTP exchange
  * observation.

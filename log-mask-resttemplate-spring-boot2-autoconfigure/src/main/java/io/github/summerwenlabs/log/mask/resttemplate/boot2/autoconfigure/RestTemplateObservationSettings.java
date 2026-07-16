@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 package io.github.summerwenlabs.log.mask.resttemplate.boot2.autoconfigure;
 
 import java.util.ArrayList;
@@ -110,7 +112,7 @@ final class RestTemplateObservationSettings {
                 governance.isEnabled(),
                 maxBodyBytes,
                 nameValueShape,
-                observation.isUriDetailsEnabled(),
+                observation.getUri().isDetailsEnabled(),
                 observation.getRequest().isHeadersEnabled(),
                 observation.getRequest().isBodyEnabled(),
                 observation.getResponse().isHeadersEnabled(),

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 package io.github.summerwenlabs.log.mask.resttemplate.boot2.autoconfigure;
 
 import java.util.ArrayList;
@@ -46,14 +48,6 @@ public class RestTemplateObservationProperties {
         this.observedBeanNames = observedBeanNames == null
                 ? new ArrayList<String>()
                 : new ArrayList<String>(observedBeanNames);
-    }
-
-    public boolean isUriDetailsEnabled() {
-        return uri.isDetailsEnabled();
-    }
-
-    public void setUriDetailsEnabled(boolean uriDetailsEnabled) {
-        uri.setDetailsEnabled(uriDetailsEnabled);
     }
 
     public Uri getUri() {
