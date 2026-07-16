@@ -14,7 +14,15 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** A local downstream endpoint so every sample call uses a real HTTP exchange. */
+/**
+ * Provides local downstream endpoints for real HTTP sample exchanges.
+ *
+ * <p>Captured inputs let integration tests prove that log governance never
+ * changes the values received by the downstream application.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 @RestController
 final class SampleEndpoint {
 

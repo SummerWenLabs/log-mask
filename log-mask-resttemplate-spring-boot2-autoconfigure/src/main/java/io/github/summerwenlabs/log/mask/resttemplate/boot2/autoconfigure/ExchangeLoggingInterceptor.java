@@ -6,6 +6,16 @@ import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
 
+/**
+ * Opens and terminates observation around the downstream interceptor chain.
+ *
+ * <p>Duration covers downstream interceptors and transport only. When INFO is
+ * disabled the interceptor performs a complete observation bypass. Any
+ * downstream exception is rethrown unchanged after best-effort finalization.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class ExchangeLoggingInterceptor implements ClientHttpRequestInterceptor {
 
     private final RestTemplateObservationRuntime runtime;

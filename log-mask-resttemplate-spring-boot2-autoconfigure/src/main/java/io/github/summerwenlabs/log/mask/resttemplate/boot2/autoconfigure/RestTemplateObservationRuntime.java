@@ -29,6 +29,18 @@ import org.springframework.http.HttpRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
 
+/**
+ * Coordinates request snapshots, response observation, and terminal events.
+ *
+ * <p>Per-thread state uses an identity map for converter-to-request handoff and
+ * a LIFO stack for synchronous nested exchanges. Scopes never cross threads,
+ * are completed at most once, and are removed even when event rendering fails.
+ * Observation failures are contained so application values and exceptions stay
+ * unchanged.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class RestTemplateObservationRuntime {
 
     private static final Logger EVENT_LOGGER = LoggerFactory.getLogger("log.mask.http");
@@ -384,6 +396,7 @@ final class RestTemplateObservationRuntime {
         return result.build();
     }
 
+    /** Holds mutable facts owned by exactly one synchronous exchange lifecycle. */
     static final class ExchangeScope {
         private final HttpExchangeRequest request;
         private final String requestMethod;

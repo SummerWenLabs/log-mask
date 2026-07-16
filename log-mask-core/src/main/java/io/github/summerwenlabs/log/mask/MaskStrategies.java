@@ -6,6 +6,9 @@ import java.util.Objects;
 
 /**
  * Access to the built-in content masking strategies.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 public final class MaskStrategies {
 
@@ -15,11 +18,10 @@ public final class MaskStrategies {
     }
 
     /**
-     * Returns the shared implementation for one content-aware built-in type.
-     *
+     * Return the shared implementation for one content-aware built-in type.
      * @param type PHONE, EMAIL, ID_CARD, BANK_CARD, or FULL
      * @return a stateless strategy safe for concurrent reuse
-     * @throws NullPointerException if {@code type} is null
+     * @throws NullPointerException if {@code type} is {@code null}
      * @throws IllegalArgumentException if {@code type} is not content-aware
      */
     public static MaskTypeDefinition builtIn(MaskType type) {

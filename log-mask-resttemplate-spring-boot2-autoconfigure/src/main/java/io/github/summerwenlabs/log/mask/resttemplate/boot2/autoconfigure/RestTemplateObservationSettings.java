@@ -16,7 +16,16 @@ import io.github.summerwenlabs.log.mask.http.HttpQueryRule;
 import io.github.summerwenlabs.log.mask.http.HttpRuleType;
 import io.github.summerwenlabs.log.mask.http.NameValueShape;
 
-/** Immutable runtime configuration compiled from Spring property binding. */
+/**
+ * Compiles Spring-bound properties into immutable runtime configuration.
+ *
+ * <p>Body budget, trace keys, custom strategy codes, rule modes, and
+ * conflicting scopes are validated once during startup. Runtime exchange
+ * handling therefore consumes only thread-safe compiled governance objects.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class RestTemplateObservationSettings {
 
     private static final long MAX_BODY_BYTES = Integer.MAX_VALUE;

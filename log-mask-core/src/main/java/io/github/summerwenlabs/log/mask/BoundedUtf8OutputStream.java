@@ -5,6 +5,16 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
+/**
+ * Buffers a complete UTF-8 JSON document up to one fixed byte budget.
+ *
+ * <p>The first write beyond the budget raises a stable sentinel exception.
+ * Cleanup may then switch the stream to discard mode so closing Jackson cannot
+ * replace the original serialization outcome with another limit failure.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class BoundedUtf8OutputStream extends OutputStream {
 
     private final int maxBytes;

@@ -7,9 +7,22 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
 
+/**
+ * Runs self-contained RestTemplate observation and governance demonstrations.
+ *
+ * <p>Profiles select the default, explicit-selection, or request-only failure
+ * workflow. All HTTP calls target the application's own embedded server.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 @SpringBootApplication
 public class LogMaskSampleApplication {
 
+    /**
+     * Start the sample application.
+     * @param args Spring Boot command-line arguments
+     */
     public static void main(String[] args) {
         SpringApplication.run(LogMaskSampleApplication.class, args);
     }

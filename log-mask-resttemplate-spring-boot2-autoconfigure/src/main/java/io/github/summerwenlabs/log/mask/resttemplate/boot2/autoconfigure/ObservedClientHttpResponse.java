@@ -7,6 +7,16 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.client.ClientHttpResponse;
 
+/**
+ * Delegates a response while exposing its consumed body to a bounded tee.
+ *
+ * <p>The same body wrapper is returned on repeated access. Closing always
+ * finalizes the exchange in a {@code finally} block, and runtime finalization
+ * is idempotent so repeated close calls cannot emit duplicate events.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class ObservedClientHttpResponse implements ClientHttpResponse {
 
     private final ClientHttpResponse delegate;

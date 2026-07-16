@@ -5,7 +5,10 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * One ordered name and its ordered values in an HTTP log region.
+ * Holds one immutable name and its ordered values in an HTTP log region.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 public final class NameValueEntry {
 
@@ -17,10 +20,18 @@ public final class NameValueEntry {
         this.values = Collections.unmodifiableList(values);
     }
 
+    /**
+     * Return the exact retained name.
+     * @return the {@code non-null} name
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * Return values in occurrence order.
+     * @return an unmodifiable list that may contain {@code null}
+     */
     public List<String> getValues() {
         return values;
     }

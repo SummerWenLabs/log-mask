@@ -1,5 +1,14 @@
 package io.github.summerwenlabs.log.mask;
 
+/**
+ * Represents the resolved action for one Jackson logical property.
+ *
+ * <p>Resolution separates invalid declarations from serialization so a broken
+ * rule can be replaced with field-level redaction without failing the object.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class MaskRule {
 
     enum Action {

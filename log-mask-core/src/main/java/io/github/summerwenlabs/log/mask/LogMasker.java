@@ -11,7 +11,15 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 /**
- * Thread-safe generator of JSON representations intended only for logging.
+ * Generates thread-safe JSON representations intended only for logging.
+ *
+ * <p>The supplied {@link ObjectMapper} is copied. Governance annotations and
+ * custom strategies apply only to that copy and never change application JSON
+ * serialization. Serialization failures are reported as
+ * {@link LogMaskException}.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 public final class LogMasker {
 
@@ -37,10 +45,22 @@ public final class LogMasker {
         this.writer = safeObjectMapper.writer();
     }
 
+    /**
+     * Create a builder from an application Jackson configuration.
+     * @param objectMapper mapper to copy; never mutated by the resulting masker
+     * @return a new builder
+     * @throws NullPointerException if {@code objectMapper} is {@code null}
+     */
     public static Builder builder(ObjectMapper objectMapper) {
         return new Builder(objectMapper);
     }
 
+    /**
+     * Generate a complete safe JSON representation without a byte budget.
+     * @param value value to represent; {@code null} produces JSON {@code null}
+     * @return the complete JSON document
+     * @throws LogMaskException if the value cannot be serialized
+     */
     public String mask(Object value) {
         try {
             return writer.writeValueAsString(value);
@@ -50,11 +70,12 @@ public final class LogMasker {
     }
 
     /**
-     * Generates a complete safe JSON representation within a UTF-8 byte limit.
-     *
+     * Generate a complete safe JSON representation within a UTF-8 byte limit.
      * @param value value to represent
-     * @param maxUtf8Bytes maximum permitted size of the final JSON, in UTF-8 bytes
-     * @return a complete JSON result, or a limit-exceeded result without partial JSON
+     * @param maxUtf8Bytes maximum permitted size of the final JSON, in UTF-8
+     * bytes
+     * @return a complete JSON result, or a limit-exceeded result without
+     * partial JSON
      * @throws IllegalArgumentException if {@code maxUtf8Bytes} is less than one
      * @throws LogMaskException if the value cannot be serialized
      */
@@ -63,12 +84,16 @@ public final class LogMasker {
     }
 
     /**
-     * Generates a complete safe JSON representation using a declared Java type.
-     *
+     * Generate a complete safe JSON representation using a declared Java type.
      * @param value value to represent
      * @param declaredType declared type used by the caller
-     * @param maxUtf8Bytes maximum permitted size of the final JSON, in UTF-8 bytes
-     * @return a complete JSON result, or a limit-exceeded result without partial JSON
+     * @param maxUtf8Bytes maximum permitted size of the final JSON, in UTF-8
+     * bytes
+     * @return a complete JSON result, or a limit-exceeded result without
+     * partial JSON
+     * @throws NullPointerException if {@code declaredType} is {@code null}
+     * @throws IllegalArgumentException if {@code maxUtf8Bytes} is less than one
+     * @throws LogMaskException if the value cannot be serialized
      */
     public BoundedMaskResult mask(
             Object value,
@@ -126,6 +151,9 @@ public final class LogMasker {
         }
     }
 
+    /**
+     * Configures an immutable {@link LogMasker} from a copied mapper.
+     */
     public static final class Builder {
         private final ObjectMapper objectMapper;
         private MaskStrategyRegistry strategyRegistry = MaskStrategyRegistry.empty();
@@ -135,16 +163,32 @@ public final class LogMasker {
             this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         }
 
+        /**
+         * Use the registry for exact, application-defined mask type codes.
+         * @param strategyRegistry immutable strategy registry
+         * @return this builder
+         * @throws NullPointerException if {@code strategyRegistry} is
+         * {@code null}
+         */
         public Builder strategyRegistry(MaskStrategyRegistry strategyRegistry) {
             this.strategyRegistry = Objects.requireNonNull(strategyRegistry, "strategyRegistry");
             return this;
         }
 
+        /**
+         * Set whether governance annotations are applied to safe JSON.
+         * @param governanceEnabled {@code true} to apply explicit field rules
+         * @return this builder
+         */
         public Builder governanceEnabled(boolean governanceEnabled) {
             this.governanceEnabled = governanceEnabled;
             return this;
         }
 
+        /**
+         * Build a thread-safe masker with the current settings.
+         * @return a new masker backed by an isolated mapper copy
+         */
         public LogMasker build() {
             return new LogMasker(objectMapper, strategyRegistry, governanceEnabled);
         }

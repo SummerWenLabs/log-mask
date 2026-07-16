@@ -3,6 +3,15 @@ package io.github.summerwenlabs.log.mask.resttemplate.boot2.autoconfigure;
 import io.github.summerwenlabs.log.mask.http.JsonValue;
 import io.github.summerwenlabs.log.mask.http.RegionState;
 
+/**
+ * Pairs one body log value with its final execution state.
+ *
+ * <p>Actual absence is JSON {@code null}. Disabled, over-budget, and failed
+ * output use an empty JSON string so they remain distinguishable from absence.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class ObservedBody {
 
     private static final ObservedBody ABSENT =

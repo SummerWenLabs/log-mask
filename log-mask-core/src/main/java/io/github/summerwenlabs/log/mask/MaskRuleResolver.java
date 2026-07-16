@@ -5,6 +5,16 @@ import java.util.regex.PatternSyntaxException;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
 
+/**
+ * Resolves field and getter annotations into one deterministic property rule.
+ *
+ * <p>Conflicts, unknown codes, invalid modes, and invalid patterns resolve to
+ * redaction. This fail-closed decision is local to the property and does not
+ * prevent the remaining safe object representation from being generated.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class MaskRuleResolver {
 
     private final MaskStrategyRegistry strategyRegistry;

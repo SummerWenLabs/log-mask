@@ -1,5 +1,14 @@
 package io.github.summerwenlabs.log.mask;
 
+/**
+ * Implements one stable built-in content masking type.
+ *
+ * <p>Malformed values fall back to equal-length full masking instead of being
+ * returned unchanged. Length is measured in Unicode code points.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class BuiltInMaskTypeDefinition implements MaskTypeDefinition {
 
     private final MaskType type;

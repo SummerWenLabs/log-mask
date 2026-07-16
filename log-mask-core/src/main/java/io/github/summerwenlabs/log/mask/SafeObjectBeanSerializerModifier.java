@@ -12,6 +12,17 @@ import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 
+/**
+ * Replaces Jackson property writers with governance-aware log-only writers.
+ *
+ * <p>Rules are resolved from Jackson logical properties, so field, getter,
+ * inheritance, and mix-in annotations follow the mapper's own introspection.
+ * The modifier is installed only on the private mapper copy owned by
+ * {@link LogMasker}.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class SafeObjectBeanSerializerModifier extends BeanSerializerModifier {
 
     private static final long serialVersionUID = 1L;

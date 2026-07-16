@@ -3,7 +3,13 @@ package io.github.summerwenlabs.log.mask;
 import java.util.Objects;
 
 /**
- * Result of generating a safe JSON representation within a UTF-8 byte limit.
+ * Immutable result of generating safe JSON within a UTF-8 byte limit.
+ *
+ * <p>A result contains either one complete JSON document or the
+ * limit-exceeded state. Partial JSON is never exposed.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 public final class BoundedMaskResult {
 
@@ -24,15 +30,17 @@ public final class BoundedMaskResult {
     }
 
     /**
-     * Returns whether generation stopped because the configured UTF-8 byte limit was exceeded.
+     * Determine whether generation stopped because the UTF-8 byte limit was
+     * exceeded.
+     * @return {@code true} when no complete JSON representation is available
      */
     public boolean isLimitExceeded() {
         return json == null;
     }
 
     /**
-     * Returns the complete JSON representation.
-     *
+     * Return the complete JSON representation.
+     * @return the complete JSON document; never {@code null}
      * @throws IllegalStateException if generation exceeded the byte limit
      */
     public String getJson() {

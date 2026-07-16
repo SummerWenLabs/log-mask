@@ -7,6 +7,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Emits each governance fallback warning once per property and failure reason.
+ *
+ * <p>The concurrent key set bounds repeated log noise across calls while
+ * preserving enough context to locate the affected model property.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class MaskingDiagnostics {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MaskingDiagnostics.class);

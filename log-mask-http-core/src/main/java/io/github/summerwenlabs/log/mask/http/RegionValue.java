@@ -2,6 +2,16 @@ package io.github.summerwenlabs.log.mask.http;
 
 import java.util.Objects;
 
+/**
+ * Validates the required pairing between one region state and its value.
+ *
+ * <p>Disabled headers use {@code null}. Body regions always use a JSON value;
+ * disabled, failed, and over-budget bodies use an empty JSON string so
+ * {@code null} remains reserved for an actually absent body.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class RegionValue<T> {
 
     private final RegionState state;

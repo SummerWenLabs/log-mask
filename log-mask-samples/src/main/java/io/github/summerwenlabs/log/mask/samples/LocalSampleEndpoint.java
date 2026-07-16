@@ -3,7 +3,12 @@ package io.github.summerwenlabs.log.mask.samples;
 import org.springframework.boot.web.context.WebServerApplicationContext;
 import org.springframework.stereotype.Component;
 
-/** Builds local URLs only after the embedded server has selected its actual port. */
+/**
+ * Builds local URLs after the embedded server selects its actual port.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 @Component
 final class LocalSampleEndpoint {
 

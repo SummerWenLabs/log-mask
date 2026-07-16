@@ -9,7 +9,14 @@ import java.util.Objects;
 import io.github.summerwenlabs.log.mask.MaskStrategyRegistry;
 
 /**
- * Immutable compiled query governance rules safe for concurrent reuse.
+ * Applies immutable compiled governance rules to HTTP query values.
+ *
+ * <p>Query names are case-sensitive while host scopes are case-insensitive. A
+ * host-scoped rule wins over a global rule for the same name. Unmatched values
+ * and their original raw encoding remain unchanged.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 public final class HttpQueryGovernance {
 
@@ -22,10 +29,23 @@ public final class HttpQueryGovernance {
         this.rules = rules;
     }
 
+    /**
+     * Return shared governance with no explicit query rules.
+     * @return an immutable no-rule instance
+     */
     public static HttpQueryGovernance none() {
         return NONE;
     }
 
+    /**
+     * Compile and validate query rules for concurrent reuse.
+     * @param rules declarations in diagnostic order
+     * @param strategyRegistry custom content strategies
+     * @return immutable compiled governance
+     * @throws NullPointerException if an argument is {@code null}
+     * @throws IllegalArgumentException if a rule is {@code null}, invalid, or
+     * duplicated
+     */
     public static HttpQueryGovernance of(
             Iterable<HttpQueryRule> rules,
             MaskStrategyRegistry strategyRegistry) {

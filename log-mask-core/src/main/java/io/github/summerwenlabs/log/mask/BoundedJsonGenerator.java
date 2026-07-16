@@ -13,6 +13,17 @@ import com.fasterxml.jackson.core.SerializableString;
 import com.fasterxml.jackson.core.TreeNode;
 import com.fasterxml.jackson.core.util.JsonGeneratorDelegate;
 
+/**
+ * Enforces an output byte budget across every Jackson generator write path.
+ *
+ * <p>The delegate may buffer bytes, so each operation checks both bytes already
+ * written to the stream and bytes still buffered by Jackson. Primitive array
+ * convenience methods are expanded element by element to stop serialization as
+ * soon as the budget is exhausted.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class BoundedJsonGenerator extends JsonGeneratorDelegate {
 
     private final BoundedUtf8OutputStream output;

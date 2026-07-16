@@ -11,6 +11,16 @@ import io.github.summerwenlabs.log.mask.MaskStrategyRegistry;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter;
 
+/**
+ * Produces governed JSON from a converter's typed Java body value.
+ *
+ * <p>Mapper selection mirrors the converter's media-type registrations. Each
+ * mapper receives an isolated, cached {@link LogMasker}; the application mapper
+ * itself is never mutated. Failures become a body processing state.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class TypedBodyJsonWriter {
 
     private final AbstractJackson2HttpMessageConverter converter;

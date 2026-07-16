@@ -8,7 +8,16 @@ import io.github.summerwenlabs.log.mask.http.NameValueShape;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.util.unit.DataSize;
 
-/** Configuration for the RestTemplate observation adapter. */
+/**
+ * Binds RestTemplate observation settings under
+ * {@code log-mask.logging.rest-template}.
+ *
+ * <p>Disabling the adapter produces a complete observation bypass. Bean names
+ * are explicit opt-ins; request and response region switches are independent.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 @ConfigurationProperties(prefix = "log-mask.logging.rest-template")
 public class RestTemplateObservationProperties {
 
@@ -95,7 +104,7 @@ public class RestTemplateObservationProperties {
         this.traceId = traceId == null ? new TraceId() : traceId;
     }
 
-    /** Region-level output switches for one HTTP message direction. */
+    /** Configures headers and body output for one HTTP message direction. */
     public static final class Region {
 
         private boolean headersEnabled = true;
@@ -118,7 +127,7 @@ public class RestTemplateObservationProperties {
         }
     }
 
-    /** URI output options. */
+    /** Configures whether the full URI is accompanied by component details. */
     public static final class Uri {
 
         private boolean detailsEnabled = true;
@@ -132,7 +141,7 @@ public class RestTemplateObservationProperties {
         }
     }
 
-    /** Read-only host trace identifier configuration. */
+    /** Configures ordered, read-only lookup of host-provided MDC trace IDs. */
     public static final class TraceId {
 
         private boolean enabled = true;

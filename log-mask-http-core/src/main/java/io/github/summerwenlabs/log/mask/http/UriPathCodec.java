@@ -6,6 +6,15 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Decodes strict UTF-8 path segments and encodes governed replacements.
+ *
+ * <p>Encoding emits only RFC 3986 unreserved characters directly and uses
+ * upper-case percent triplets for every other UTF-8 byte.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class UriPathCodec {
 
     private UriPathCodec() {

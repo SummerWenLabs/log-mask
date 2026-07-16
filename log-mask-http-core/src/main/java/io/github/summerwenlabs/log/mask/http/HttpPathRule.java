@@ -6,7 +6,14 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * One named path-template governance rule with optional host and method scopes.
+ * Declares one named path-template rule with optional host and method scopes.
+ *
+ * <p>Each {@code {name}} segment requires exactly one variable declaration.
+ * A {@code *} segment is an ungoverned raw-encoding wildcard and {@code **} is
+ * unsupported. Patterns are matched against absolute raw paths.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 public final class HttpPathRule {
 
@@ -26,6 +33,10 @@ public final class HttpPathRule {
                 new ArrayList<VariableDeclaration>(builder.variables));
     }
 
+    /**
+     * Create a builder for one path template rule.
+     * @return a new builder
+     */
     public static Builder builder() {
         return new Builder();
     }
@@ -132,6 +143,12 @@ public final class HttpPathRule {
         }
     }
 
+    /**
+     * Builds a path rule and its named-variable governance declarations.
+     *
+     * <p>Variable declarations must match the final template exactly. This is
+     * validated when the containing {@link HttpPathGovernance} is compiled.
+     */
     public static final class Builder {
         private String pattern;
         private String host;
@@ -142,31 +159,65 @@ public final class HttpPathRule {
         private Builder() {
         }
 
+        /**
+         * Set an absolute raw path template.
+         * @param pattern template containing literals, {@code *}, and named
+         * variables
+         * @return this builder
+         */
         public Builder pattern(String pattern) {
             this.pattern = pattern;
             return this;
         }
 
+        /**
+         * Set an optional case-insensitive host scope.
+         * @param host host scope, or {@code null} for global scope
+         * @return this builder
+         */
         public Builder host(String host) {
             this.host = host;
             return this;
         }
 
+        /**
+         * Set an optional case-insensitive HTTP method scope.
+         * @param method HTTP token, or {@code null} for all methods
+         * @return this builder
+         */
         public Builder method(String method) {
             this.method = method;
             return this;
         }
 
+        /**
+         * Govern a named template variable with a built-in rule.
+         * @param name variable name without braces
+         * @param type built-in action; {@link HttpRuleType#EXCLUDE} is invalid
+         * @return this builder
+         */
         public Builder variable(String name, HttpRuleType type) {
             variables.add(new VariableDeclaration(name, type, null));
             return this;
         }
 
+        /**
+         * Govern a named template variable with an exact custom strategy code.
+         * @param name variable name without braces
+         * @param typeCode custom code resolved during governance compilation
+         * @return this builder
+         */
         public Builder variableTypeCode(String name, String typeCode) {
             variables.add(new VariableDeclaration(name, null, typeCode));
             return this;
         }
 
+        /**
+         * Build the immutable declaration before cross-rule compilation.
+         * @return a new path rule
+         * @throws IllegalArgumentException if pattern, host, or method is
+         * invalid
+         */
         public HttpPathRule build() {
             return new HttpPathRule(this);
         }

@@ -10,6 +10,16 @@ import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.converter.HttpMessageNotWritableException;
 
+/**
+ * Decorates a concrete RestTemplate converter while preserving its behavior.
+ *
+ * <p>Capability checks and HTTP reads/writes are delegated unchanged. The same
+ * Java value is observed only after successful conversion; a converter failure
+ * is rethrown unchanged after best-effort request-only finalization.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 abstract class AbstractObservedHttpMessageConverter<T>
         implements HttpMessageConverter<T> {
 

@@ -8,6 +8,13 @@ import java.util.Optional;
 
 /**
  * Immutable registry of custom content masking strategies.
+ *
+ * <p>Codes are non-empty, have no surrounding whitespace, and are matched
+ * exactly with case preserved. The custom namespace is independent of built-in
+ * {@link MaskType} names.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 public final class MaskStrategyRegistry {
 
@@ -20,10 +27,22 @@ public final class MaskStrategyRegistry {
         this.definitions = definitions;
     }
 
+    /**
+     * Return the shared empty registry.
+     * @return an immutable registry with no custom strategies
+     */
     public static MaskStrategyRegistry empty() {
         return EMPTY;
     }
 
+    /**
+     * Create an immutable registry from application-defined strategies.
+     * @param definitions strategy definitions in registration order
+     * @return an immutable registry, or the shared empty registry
+     * @throws NullPointerException if the iterable or any definition is
+     * {@code null}
+     * @throws IllegalArgumentException if a code is invalid or duplicated
+     */
     public static MaskStrategyRegistry of(
             Iterable<? extends MaskTypeDefinition> definitions) {
         Objects.requireNonNull(definitions, "definitions");
@@ -43,6 +62,11 @@ public final class MaskStrategyRegistry {
                                 new LinkedHashMap<MaskTypeCode, MaskTypeDefinition>(byCode)));
     }
 
+    /**
+     * Find a strategy by its exact custom code.
+     * @param typeCode code to find; invalid codes are treated as absent
+     * @return the matching strategy, if registered
+     */
     public Optional<MaskTypeDefinition> find(String typeCode) {
         if (!MaskTypeCode.isValid(typeCode)) {
             return Optional.empty();

@@ -2,6 +2,17 @@ package io.github.summerwenlabs.log.mask.resttemplate.boot2.autoconfigure;
 
 import java.io.ByteArrayOutputStream;
 
+/**
+ * Captures a bounded contiguous prefix of a response stream as it is consumed.
+ *
+ * <p>The capture never reads from the stream itself. Skips or discontinuous
+ * reads make an empty capture unusable, while overlapping reads after reset do
+ * not duplicate bytes. Reaching the budget stops capture without limiting the
+ * application's response stream.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class BoundedBodyCapture {
 
     private final int maxCapturedBytes;

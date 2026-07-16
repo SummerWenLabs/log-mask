@@ -11,6 +11,16 @@ import io.github.summerwenlabs.log.mask.BoundedMaskResult;
 import io.github.summerwenlabs.log.mask.LogMasker;
 import org.springframework.http.MediaType;
 
+/**
+ * Produces JSON log values for strings, bytes, and error-response wire bytes.
+ *
+ * <p>Strings remain JSON strings and byte arrays use Jackson Base64 encoding.
+ * Wire bytes use the declared charset, defaulting to UTF-8; undecodable bytes
+ * fall back to the lossless byte-array representation without field governance.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class UntypedBodyJsonWriter {
 
     private final LogMasker jsonWriter = LogMasker.builder(new ObjectMapper())

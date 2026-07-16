@@ -14,7 +14,14 @@ import java.util.Set;
 import io.github.summerwenlabs.log.mask.MaskStrategyRegistry;
 
 /**
- * Immutable compiled path governance rules safe for concurrent reuse.
+ * Applies immutable compiled governance rules to raw URI path segments.
+ *
+ * <p>Rules are selected deterministically by host/method scope and then literal
+ * segment priority. Named variables are decoded as strict UTF-8 before masking
+ * and re-encoded after masking; wildcard segments preserve their raw encoding.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 public final class HttpPathGovernance {
 
@@ -27,10 +34,22 @@ public final class HttpPathGovernance {
         this.rules = rules;
     }
 
+    /**
+     * Return shared governance with no explicit path rules.
+     * @return an immutable no-rule instance
+     */
     public static HttpPathGovernance none() {
         return NONE;
     }
 
+    /**
+     * Compile and validate path rules for concurrent reuse.
+     * @param rules declarations in diagnostic order
+     * @param strategyRegistry custom content strategies
+     * @return immutable compiled governance
+     * @throws NullPointerException if an argument is {@code null}
+     * @throws IllegalArgumentException if declarations are invalid or ambiguous
+     */
     public static HttpPathGovernance of(
             Iterable<HttpPathRule> rules,
             MaskStrategyRegistry strategyRegistry) {
@@ -52,12 +71,26 @@ public final class HttpPathGovernance {
                         Collections.unmodifiableList(new ArrayList<CompiledRule>(compiled)));
     }
 
+    /**
+     * Govern a URI path without explicit query rules.
+     * @param requestUri URI whose raw path is observed
+     * @param method non-empty HTTP token, matched case-insensitively
+     * @return the immutable governed URI representation
+     * @throws NullPointerException if an argument is {@code null}
+     * @throws IllegalArgumentException if {@code method} is not an HTTP token
+     */
     public HttpRequestUri govern(URI requestUri, String method) {
         return govern(requestUri, method, HttpQueryGovernance.none());
     }
 
     /**
-     * Governs a URI path and query with independently compiled rule sets.
+     * Govern a URI path and query with independently compiled rule sets.
+     * @param requestUri URI whose raw path and query are observed
+     * @param method non-empty HTTP token, matched case-insensitively
+     * @param queryGovernance independently compiled query rules
+     * @return the immutable governed URI representation
+     * @throws NullPointerException if an argument is {@code null}
+     * @throws IllegalArgumentException if {@code method} is not an HTTP token
      */
     public HttpRequestUri govern(
             URI requestUri,

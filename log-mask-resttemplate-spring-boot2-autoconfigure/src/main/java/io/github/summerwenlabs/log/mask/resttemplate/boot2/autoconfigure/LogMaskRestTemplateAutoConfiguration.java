@@ -16,7 +16,15 @@ import org.springframework.web.client.RestTemplate;
 import io.github.summerwenlabs.log.mask.MaskTypeDefinition;
 
 /**
- * Auto-configuration for the default observed RestTemplate.
+ * Configures explicit RestTemplate HTTP exchange observation for Spring Boot 2.
+ *
+ * <p>A default annotated {@link RestTemplate} is created only when the
+ * application has none. Existing instances are modified only when selected by
+ * annotation, configured bean name, or
+ * {@link RestTemplateObservationConfigurer}.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass({RestTemplate.class, RestTemplateBuilder.class})
@@ -26,6 +34,11 @@ public class LogMaskRestTemplateAutoConfiguration {
     @Bean
     @ObservedRestTemplate
     @ConditionalOnMissingBean(RestTemplate.class)
+    /**
+     * Create the default explicitly observed RestTemplate when none exists.
+     * @param builder application-configured RestTemplate builder
+     * @return a new RestTemplate using the application's builder customizations
+     */
     public RestTemplate logMaskRestTemplate(RestTemplateBuilder builder) {
         return builder.build();
     }

@@ -4,6 +4,16 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 
+/**
+ * Writes a string property through a content masking strategy.
+ *
+ * <p>A non-string value, a custom strategy failure, or a custom strategy that
+ * returns {@code null} is isolated to the current property and replaced with a
+ * fixed redaction. Other properties remain serializable.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class ContentMaskingBeanPropertyWriter extends BeanPropertyWriter {
 
     private static final long serialVersionUID = 1L;

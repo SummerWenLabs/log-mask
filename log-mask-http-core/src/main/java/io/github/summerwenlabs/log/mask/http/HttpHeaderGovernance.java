@@ -10,7 +10,14 @@ import java.util.Objects;
 import io.github.summerwenlabs.log.mask.MaskStrategyRegistry;
 
 /**
- * Immutable compiled header governance rules safe for concurrent reuse.
+ * Applies immutable compiled governance rules to HTTP header collections.
+ *
+ * <p>Header names and host scopes are case-insensitive. A host-scoped rule wins
+ * over a global rule for the same name. Unmatched values remain unchanged and
+ * still produce {@link RegionState#SUCCESS}.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 public final class HttpHeaderGovernance {
 
@@ -23,10 +30,23 @@ public final class HttpHeaderGovernance {
         this.rules = rules;
     }
 
+    /**
+     * Return shared governance with no explicit header rules.
+     * @return an immutable no-rule instance
+     */
     public static HttpHeaderGovernance none() {
         return NONE;
     }
 
+    /**
+     * Compile and validate header rules for concurrent reuse.
+     * @param rules declarations in diagnostic order
+     * @param strategyRegistry custom content strategies
+     * @return immutable compiled governance
+     * @throws NullPointerException if an argument is {@code null}
+     * @throws IllegalArgumentException if a rule is {@code null}, invalid, or
+     * duplicated
+     */
     public static HttpHeaderGovernance of(
             Iterable<HttpHeaderRule> rules,
             MaskStrategyRegistry strategyRegistry) {
@@ -56,6 +76,13 @@ public final class HttpHeaderGovernance {
                                 new LinkedHashMap<RuleKey, CompiledRule>(compiled)));
     }
 
+    /**
+     * Govern one request or response header snapshot.
+     * @param host effective request host; may be {@code null}
+     * @param headers ordered header snapshot
+     * @return governed headers and their final execution state
+     * @throws NullPointerException if {@code headers} is {@code null}
+     */
     public Result govern(String host, NameValueCollection headers) {
         Objects.requireNonNull(headers, "headers");
         String normalizedHost = host == null ? null : host.toLowerCase(Locale.ROOT);
@@ -99,7 +126,7 @@ public final class HttpHeaderGovernance {
     }
 
     /**
-     * Final governed header collection and its execution state.
+     * Pairs the final immutable header collection with its execution state.
      */
     public static final class Result {
         private final RegionState state;
@@ -110,10 +137,18 @@ public final class HttpHeaderGovernance {
             this.headers = headers;
         }
 
+        /**
+         * Return the final header execution state.
+         * @return the result state
+         */
         public RegionState getState() {
             return state;
         }
 
+        /**
+         * Return the immutable governed headers.
+         * @return the governed header collection
+         */
         public NameValueCollection getHeaders() {
             return headers;
         }

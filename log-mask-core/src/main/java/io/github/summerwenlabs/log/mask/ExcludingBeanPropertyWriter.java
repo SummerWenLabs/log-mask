@@ -4,6 +4,15 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 
+/**
+ * Omits a governed property without reading its value.
+ *
+ * <p>Object properties disappear from safe JSON, while positional array
+ * elements use Jackson's omitted-field handling to preserve array structure.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class ExcludingBeanPropertyWriter extends BeanPropertyWriter {
 
     private static final long serialVersionUID = 1L;

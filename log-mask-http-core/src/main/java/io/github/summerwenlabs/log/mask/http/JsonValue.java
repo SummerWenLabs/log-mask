@@ -10,7 +10,13 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 
 /**
- * A validated, compact JSON value ready to embed in an event.
+ * Holds one validated, compact JSON value ready to embed in an event.
+ *
+ * <p>The value is immutable and written as JSON rather than as an escaped JSON
+ * string. Construction accepts exactly one complete JSON value.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 public final class JsonValue {
 
@@ -24,6 +30,14 @@ public final class JsonValue {
         this.json = json;
     }
 
+    /**
+     * Parse and compact exactly one JSON value.
+     * @param json complete JSON value, including scalar values
+     * @return an immutable embeddable value
+     * @throws NullPointerException if {@code json} is {@code null}
+     * @throws IllegalArgumentException if JSON is invalid, empty, or has
+     * trailing values
+     */
     public static JsonValue ofJson(String json) {
         Objects.requireNonNull(json, "json");
         StringWriter compact = new StringWriter();
@@ -43,10 +57,18 @@ public final class JsonValue {
         return new JsonValue(compact.toString());
     }
 
+    /**
+     * Return the shared empty JSON string value.
+     * @return JSON {@code ""}
+     */
     public static JsonValue emptyString() {
         return EMPTY_STRING;
     }
 
+    /**
+     * Return the shared JSON null value.
+     * @return JSON {@code null}
+     */
     public static JsonValue nullValue() {
         return NULL;
     }

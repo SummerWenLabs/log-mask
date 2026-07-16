@@ -13,6 +13,16 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter;
 
+/**
+ * Decorates a Jackson converter to observe typed request and response values.
+ *
+ * <p>All capability checks and conversions delegate to the original converter.
+ * Observation uses the same declared type and converter-selected mapper only
+ * after successful conversion; it never reparses wire JSON.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class ObservedJacksonHttpMessageConverter
         implements GenericHttpMessageConverter<Object> {
 

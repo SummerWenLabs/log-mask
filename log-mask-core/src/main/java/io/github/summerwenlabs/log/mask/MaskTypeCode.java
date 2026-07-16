@@ -2,6 +2,12 @@ package io.github.summerwenlabs.log.mask;
 
 import java.util.Objects;
 
+/**
+ * Validates and preserves an exact application-defined strategy code.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class MaskTypeCode {
 
     private final String value;

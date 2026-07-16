@@ -12,7 +12,15 @@ import java.util.Locale;
 import java.util.Objects;
 
 /**
- * Immutable log representation of an HTTP request URI.
+ * Holds an immutable log representation of an HTTP request URI.
+ *
+ * <p>HTTP schemes and hosts are normalized, effective ports are reported, user
+ * information and fragments are omitted, and raw path encoding is preserved
+ * unless a named variable is governed. The full URI always reflects the final
+ * governed path and query.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 public final class HttpRequestUri {
 
@@ -41,10 +49,23 @@ public final class HttpRequestUri {
         this.query = query;
     }
 
+    /**
+     * Create an observed URI without explicit query rules.
+     * @param requestUri source URI
+     * @return the normalized log representation
+     * @throws NullPointerException if {@code requestUri} is {@code null}
+     */
     public static HttpRequestUri from(URI requestUri) {
         return from(requestUri, HttpQueryGovernance.none());
     }
 
+    /**
+     * Create an observed URI with explicit query governance.
+     * @param requestUri source URI
+     * @param queryGovernance compiled query rules
+     * @return the normalized and governed log representation
+     * @throws NullPointerException if an argument is {@code null}
+     */
     public static HttpRequestUri from(
             URI requestUri,
             HttpQueryGovernance queryGovernance) {
@@ -157,30 +178,58 @@ public final class HttpRequestUri {
         }
     }
 
+    /**
+     * Return the final URI execution state.
+     * @return the URI state
+     */
     public RegionState getState() {
         return state;
     }
 
+    /**
+     * Return the governed full URI without user information or fragment.
+     * @return the full URI string
+     */
     public String getFull() {
         return full;
     }
 
+    /**
+     * Return the normalized lower-case scheme.
+     * @return scheme, or {@code null} when unavailable
+     */
     public String getScheme() {
         return scheme;
     }
 
+    /**
+     * Return the normalized lower-case host.
+     * @return host, or {@code null} when unavailable
+     */
     public String getHost() {
         return host;
     }
 
+    /**
+     * Return the explicit or scheme-default effective port.
+     * @return port, or {@code -1} when it cannot be determined
+     */
     public int getPort() {
         return port;
     }
 
+    /**
+     * Return the governed raw path.
+     * @return the path, possibly empty
+     */
     public String getPath() {
         return path;
     }
 
+    /**
+     * Return the ordered governed query values.
+     * @return query entries, empty when no query exists
+     */
     public NameValueCollection getQuery() {
         return query;
     }

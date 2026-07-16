@@ -54,7 +54,15 @@ import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * Reproducible local measurements for the approved RestTemplate observation scenarios.
+ * Reproducible local measurements for approved RestTemplate observation
+ * scenarios.
+ *
+ * <p>Each scenario uses the same deterministic in-memory transport. Setup,
+ * Spring context creation, fixture validation, and logger replacement remain
+ * outside timed methods so results isolate per-exchange adapter overhead.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -82,7 +90,7 @@ public class RestTemplateObservationBenchmark {
     private HttpEntity<SizedPayload> sixtyFourKiBRequest;
     private DiscardingEventLogger discardingEventLogger;
 
-    /** Sets up five complete RestTemplate paths outside the timed benchmark methods. */
+    /** Set up five complete RestTemplate paths outside timed methods. */
     @Setup(org.openjdk.jmh.annotations.Level.Trial)
     public void setUp() throws IOException {
         discardingEventLogger = DiscardingEventLogger.install();
@@ -113,37 +121,37 @@ public class RestTemplateObservationBenchmark {
                         serialize(fixtureMapper, sixtyFourKiBPayload)));
     }
 
-    /** RestTemplate without the starter or observation chain. */
+    /** Measure RestTemplate without the starter or observation chain. */
     @Benchmark
     public void nativeRestTemplate(Blackhole blackhole) {
         executeNoBody(nativeRestTemplate, blackhole);
     }
 
-    /** Starter and auto-configuration are present, but logging is disabled. */
+    /** Measure a present starter with exchange logging disabled. */
     @Benchmark
     public void starterPresentLoggingDisabled(Blackhole blackhole) {
         executeNoBody(starterLoggingDisabled.restTemplate(), blackhole);
     }
 
-    /** Logging emits a complete exchange event for a bodyless request and response. */
+    /** Measure logging a complete bodyless request and response. */
     @Benchmark
     public void loggingEnabledNoBody(Blackhole blackhole) {
         executeNoBody(loggingEnabledNoBody.restTemplate(), blackhole);
     }
 
-    /** Logging serializes and consumes a 1 KiB typed JSON request and response. */
+    /** Measure a 1 KiB typed JSON request and response. */
     @Benchmark
     public void loggingEnabledTypedDtoOneKiB(Blackhole blackhole) {
         executeTyped(loggingEnabledOneKiB.restTemplate(), oneKiBRequest, blackhole);
     }
 
-    /** Logging serializes and consumes a 64 KiB typed JSON request and response. */
+    /** Measure a 64 KiB typed JSON request and response. */
     @Benchmark
     public void loggingEnabledTypedDtoSixtyFourKiB(Blackhole blackhole) {
         executeTyped(loggingEnabledSixtyFourKiB.restTemplate(), sixtyFourKiBRequest, blackhole);
     }
 
-    /** Closes local Spring contexts and restores the host logger after a JMH trial. */
+    /** Close local Spring contexts and restore the host logger after a trial. */
     @TearDown(org.openjdk.jmh.annotations.Level.Trial)
     public void tearDown() {
         close(starterLoggingDisabled);

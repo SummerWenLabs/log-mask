@@ -21,7 +21,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
-/** Uses a deterministic transport failure to demonstrate a request-only event. */
+/**
+ * Configures a deterministic transport failure to demonstrate request-only
+ * events.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 @Configuration(proxyBeanMethods = false)
 @Profile("request-only-demo")
 class RequestOnlySampleConfiguration {
@@ -38,6 +44,12 @@ class RequestOnlySampleConfiguration {
     }
 }
 
+/**
+ * Invokes the failing observed RestTemplate without consuming its exception.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 @Component
 @Profile("request-only-demo")
 final class RequestOnlySampleClient {
@@ -57,7 +69,13 @@ final class RequestOnlySampleClient {
     }
 }
 
-/** Exposes the failure call without catching or replacing the business exception. */
+/**
+ * Exposes the failure call without catching or replacing the business
+ * exception.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 @RestController
 @Profile("request-only-demo")
 final class RequestOnlyDemoEndpoint {
@@ -74,6 +92,12 @@ final class RequestOnlyDemoEndpoint {
     }
 }
 
+/**
+ * Supplies a request that always fails before a response can be obtained.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class FailingClientHttpRequestFactory implements ClientHttpRequestFactory {
 
     private final IOException failure = new IOException("sample transport failure");

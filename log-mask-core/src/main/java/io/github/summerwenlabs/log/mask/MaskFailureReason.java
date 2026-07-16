@@ -1,5 +1,11 @@
 package io.github.summerwenlabs.log.mask;
 
+/**
+ * Identifies a property-level governance failure for deduplicated diagnostics.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 enum MaskFailureReason {
     CONFLICTING_DECLARATIONS("conflicting_declarations"),
     INVALID_MODE("invalid_mode"),

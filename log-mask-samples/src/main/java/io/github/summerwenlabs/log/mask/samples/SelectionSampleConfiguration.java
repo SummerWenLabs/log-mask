@@ -10,7 +10,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
-/** Explicit RestTemplate selection samples run separately from the default-bean sample. */
+/**
+ * Configures annotation, bean-name, and programmatic RestTemplate selection.
+ *
+ * <p>The shared instance is selected twice to demonstrate identity-based
+ * idempotence, while the unselected instance remains unchanged.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 @Configuration(proxyBeanMethods = false)
 @Profile("selection-demo")
 class SelectionSampleConfiguration {
@@ -49,6 +57,12 @@ class SelectionSampleConfiguration {
     }
 }
 
+/**
+ * Invokes each selection variant against the same local endpoint.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 @Component
 @Profile("selection-demo")
 final class SelectionSampleClient {

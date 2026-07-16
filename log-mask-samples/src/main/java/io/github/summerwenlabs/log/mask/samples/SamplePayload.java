@@ -4,13 +4,24 @@ import io.github.summerwenlabs.log.mask.LogExclude;
 import io.github.summerwenlabs.log.mask.Mask;
 import io.github.summerwenlabs.log.mask.MaskType;
 
-/** Request and response model used to demonstrate typed JSON body governance. */
+/**
+ * Provides a request and response model for typed JSON body governance.
+ *
+ * <p>The phone property is masked only in logs and the internal property is
+ * excluded only from logs; normal HTTP serialization retains both values.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 public class SamplePayload {
 
     private String label;
     private String phone;
     private String internal;
 
+    /**
+     * Create an empty payload for Jackson deserialization.
+     */
     public SamplePayload() {
     }
 

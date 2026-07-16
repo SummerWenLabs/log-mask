@@ -11,7 +11,14 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 
 /**
- * Thread-safe writer for compact schemaVersion 1 HTTP exchange events.
+ * Writes compact, single-line schema version 1 HTTP exchange events.
+ *
+ * <p>Instances are thread-safe. The writer owns only JSON rendering and does
+ * not choose a logging backend or log level. Timestamps are rendered in UTC
+ * with millisecond precision.
+ *
+ * @author SummerWen
+ * @since 0.1
  */
 public final class HttpExchangeEventWriter {
 
@@ -22,15 +29,31 @@ public final class HttpExchangeEventWriter {
     private final NameValueShape nameValueShape;
     private final boolean uriDetailsEnabled;
 
+    /**
+     * Create a writer using standard name/value arrays and URI details.
+     */
     public HttpExchangeEventWriter() {
         this(NameValueShape.STANDARD, true);
     }
 
+    /**
+     * Create a writer with an explicit name/value shape and URI detail mode.
+     * @param nameValueShape JSON representation for headers and query values
+     * @param uriDetailsEnabled whether component fields accompany the full URI
+     * @throws NullPointerException if {@code nameValueShape} is {@code null}
+     */
     public HttpExchangeEventWriter(NameValueShape nameValueShape, boolean uriDetailsEnabled) {
         this.nameValueShape = Objects.requireNonNull(nameValueShape, "nameValueShape");
         this.uriDetailsEnabled = uriDetailsEnabled;
     }
 
+    /**
+     * Write one event as compact, single-line JSON.
+     * @param event validated terminal exchange event
+     * @return the complete JSON event
+     * @throws NullPointerException if {@code event} is {@code null}
+     * @throws HttpExchangeWriteException if JSON generation fails
+     */
     public String write(HttpExchangeEvent event) {
         Objects.requireNonNull(event, "event");
         StringWriter output = new StringWriter();

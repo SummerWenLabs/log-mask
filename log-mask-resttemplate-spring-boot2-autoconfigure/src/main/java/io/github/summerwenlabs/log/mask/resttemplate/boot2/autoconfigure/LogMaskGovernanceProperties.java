@@ -5,7 +5,16 @@ import java.util.List;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/** Configuration for explicit HTTP log data governance rules. */
+/**
+ * Binds explicit HTTP log data governance rules under
+ * {@code log-mask.governance}.
+ *
+ * <p>No sensitive names or values are inferred. An empty rule list preserves
+ * values as observed, and request and response header rules remain independent.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 @ConfigurationProperties(prefix = "log-mask.governance")
 public class LogMaskGovernanceProperties {
 
@@ -28,6 +37,7 @@ public class LogMaskGovernanceProperties {
         this.http = http == null ? new Http() : http;
     }
 
+    /** Groups client-independent HTTP path, query, and header rules. */
     public static final class Http {
 
         private Path path = new Path();
@@ -59,6 +69,7 @@ public class LogMaskGovernanceProperties {
         }
     }
 
+    /** Holds ordered path template declarations. */
     public static final class Path {
 
         private List<PathRule> rules = new ArrayList<PathRule>();
@@ -72,6 +83,7 @@ public class LogMaskGovernanceProperties {
         }
     }
 
+    /** Holds ordered query value declarations. */
     public static final class Query {
 
         private List<ValueRule> rules = new ArrayList<ValueRule>();
@@ -85,6 +97,7 @@ public class LogMaskGovernanceProperties {
         }
     }
 
+    /** Separates request and response header rule sets. */
     public static final class Headers {
 
         private Direction request = new Direction();
@@ -107,6 +120,7 @@ public class LogMaskGovernanceProperties {
         }
     }
 
+    /** Holds rules for one HTTP message direction. */
     public static final class Direction {
 
         private List<ValueRule> rules = new ArrayList<ValueRule>();
@@ -120,6 +134,7 @@ public class LogMaskGovernanceProperties {
         }
     }
 
+    /** Binds one path template, optional scope, and named variables. */
     public static final class PathRule {
 
         private String pattern;
@@ -162,6 +177,7 @@ public class LogMaskGovernanceProperties {
         }
     }
 
+    /** Binds one path variable to either a built-in type or custom code. */
     public static final class PathVariable {
 
         private String name;
@@ -193,6 +209,7 @@ public class LogMaskGovernanceProperties {
         }
     }
 
+    /** Binds one query or header name to a built-in type or custom code. */
     public static final class ValueRule {
 
         private String name;

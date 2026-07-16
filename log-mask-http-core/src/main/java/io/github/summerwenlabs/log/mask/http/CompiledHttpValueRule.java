@@ -5,6 +5,16 @@ import io.github.summerwenlabs.log.mask.MaskStrategyRegistry;
 import io.github.summerwenlabs.log.mask.MaskType;
 import io.github.summerwenlabs.log.mask.MaskTypeDefinition;
 
+/**
+ * Compiles one HTTP value declaration into a reusable governance action.
+ *
+ * <p>Rule configuration errors fail compilation. Runtime strategy failures are
+ * isolated to the current value, replaced with fixed redaction, and reported
+ * through the paired fallback state.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class CompiledHttpValueRule {
 
     private static final String REDACTION = "<redacted>";

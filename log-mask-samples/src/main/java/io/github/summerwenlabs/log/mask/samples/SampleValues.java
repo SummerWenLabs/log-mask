@@ -1,5 +1,11 @@
 package io.github.summerwenlabs.log.mask.samples;
 
+/**
+ * Centralizes deterministic values shared by sample clients and assertions.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class SampleValues {
 
     static final String CUSTOMER_ID = "customer-42";

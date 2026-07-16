@@ -11,7 +11,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
-/** Calls the local endpoint with the auto-configured default observed RestTemplate. */
+/**
+ * Calls local endpoints with the auto-configured default observed RestTemplate.
+ *
+ * <p>The scenarios cover typed JSON, string, byte-array, and absent bodies
+ * without relying on an external service.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 @Component
 @Profile("!selection-demo & !request-only-demo")
 final class DefaultSampleClient {

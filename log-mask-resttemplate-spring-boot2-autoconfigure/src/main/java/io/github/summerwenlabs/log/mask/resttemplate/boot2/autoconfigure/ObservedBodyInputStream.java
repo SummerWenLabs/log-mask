@@ -3,6 +3,16 @@ package io.github.summerwenlabs.log.mask.resttemplate.boot2.autoconfigure;
 import java.io.IOException;
 import java.io.InputStream;
 
+/**
+ * Tees bytes into a bounded capture while delegating every stream operation.
+ *
+ * <p>The wrapper never pre-reads, retries, or closes independently. Reads,
+ * skips, marks, resets, and failures are tracked only to determine whether the
+ * bytes consumed by the application form a usable log view.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class ObservedBodyInputStream extends InputStream {
 
     private final InputStream delegate;

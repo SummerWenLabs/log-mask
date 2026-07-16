@@ -19,7 +19,17 @@ import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
 
-/** Installs one observation interceptor on each explicitly selected instance. */
+/**
+ * Installs observation components on each explicitly selected RestTemplate.
+ *
+ * <p>Selection covers configured names and aliases, the marker annotation, and
+ * Java configurers. Installation is idempotent by instance: supported
+ * converters are decorated in place and one interceptor is inserted first,
+ * without replacing application transport or other RestTemplate settings.
+ *
+ * @author SummerWen
+ * @since 0.1
+ */
 final class RestTemplateObservationInstaller
         implements BeanPostProcessor, SmartInitializingSingleton {
 
