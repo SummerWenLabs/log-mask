@@ -7,7 +7,7 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.summerwenlabs.log.mask.BoundedMaskResult;
 import io.github.summerwenlabs.log.mask.LogMasker;
-import io.github.summerwenlabs.log.mask.MaskStrategyRegistry;
+import io.github.summerwenlabs.log.mask.strategy.MaskStrategyRegistry;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter;
 

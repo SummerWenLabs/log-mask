@@ -6,6 +6,8 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
+import io.github.summerwenlabs.log.mask.resttemplate.boot2.ObservedRestTemplate;
+import io.github.summerwenlabs.log.mask.resttemplate.boot2.RestTemplateObservationConfigurer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.config.BeanDefinition;

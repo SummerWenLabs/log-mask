@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import io.github.summerwenlabs.log.mask.http.NameValueShape;
+import io.github.summerwenlabs.log.mask.http.exchange.NameValueShape;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.util.unit.DataSize;
 

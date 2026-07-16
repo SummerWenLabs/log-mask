@@ -2,6 +2,8 @@ package io.github.summerwenlabs.log.mask.resttemplate.boot2.autoconfigure;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import io.github.summerwenlabs.log.mask.resttemplate.boot2.ObservedRestTemplate;
+import io.github.summerwenlabs.log.mask.resttemplate.boot2.RestTemplateObservationConfigurer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

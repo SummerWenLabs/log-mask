@@ -5,16 +5,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-import io.github.summerwenlabs.log.mask.MaskStrategyRegistry;
-import io.github.summerwenlabs.log.mask.MaskTypeDefinition;
-import io.github.summerwenlabs.log.mask.http.HttpHeaderGovernance;
-import io.github.summerwenlabs.log.mask.http.HttpHeaderRule;
-import io.github.summerwenlabs.log.mask.http.HttpPathGovernance;
-import io.github.summerwenlabs.log.mask.http.HttpPathRule;
-import io.github.summerwenlabs.log.mask.http.HttpQueryGovernance;
-import io.github.summerwenlabs.log.mask.http.HttpQueryRule;
-import io.github.summerwenlabs.log.mask.http.HttpRuleType;
-import io.github.summerwenlabs.log.mask.http.NameValueShape;
+import io.github.summerwenlabs.log.mask.http.exchange.NameValueShape;
+import io.github.summerwenlabs.log.mask.http.governance.HttpHeaderGovernance;
+import io.github.summerwenlabs.log.mask.http.governance.HttpHeaderRule;
+import io.github.summerwenlabs.log.mask.http.governance.HttpPathGovernance;
+import io.github.summerwenlabs.log.mask.http.governance.HttpPathRule;
+import io.github.summerwenlabs.log.mask.http.governance.HttpQueryGovernance;
+import io.github.summerwenlabs.log.mask.http.governance.HttpQueryRule;
+import io.github.summerwenlabs.log.mask.http.governance.HttpRuleType;
+import io.github.summerwenlabs.log.mask.strategy.MaskStrategyRegistry;
+import io.github.summerwenlabs.log.mask.strategy.MaskTypeDefinition;
 
 /**
  * Compiles Spring-bound properties into immutable runtime configuration.

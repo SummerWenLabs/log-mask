@@ -1,5 +1,8 @@
 package io.github.summerwenlabs.log.mask.resttemplate.boot2.autoconfigure;
 
+import io.github.summerwenlabs.log.mask.resttemplate.boot2.ObservedRestTemplate;
+import io.github.summerwenlabs.log.mask.resttemplate.boot2.RestTemplateObservationConfigurer;
+import io.github.summerwenlabs.log.mask.strategy.MaskTypeDefinition;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -13,7 +16,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.web.client.RestTemplate;
-import io.github.summerwenlabs.log.mask.MaskTypeDefinition;
 
 /**
  * Configures explicit RestTemplate HTTP exchange observation for Spring Boot 2.

@@ -1,5 +1,8 @@
 package io.github.summerwenlabs.log.mask;
 
+import io.github.summerwenlabs.log.mask.governance.MaskType;
+import io.github.summerwenlabs.log.mask.strategy.MaskTypeDefinition;
+
 /**
  * Represents the resolved action for one Jackson logical property.
  *

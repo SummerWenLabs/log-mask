@@ -2,6 +2,8 @@ package io.github.summerwenlabs.log.mask;
 
 import java.util.regex.Pattern;
 
+import io.github.summerwenlabs.log.mask.strategy.MaskTypeDefinition;
+
 /**
  * Applies one annotation-defined regular-expression replacement.
  *

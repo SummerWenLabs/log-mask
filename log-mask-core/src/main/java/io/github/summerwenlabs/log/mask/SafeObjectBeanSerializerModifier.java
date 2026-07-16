@@ -11,6 +11,8 @@ import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
+import io.github.summerwenlabs.log.mask.governance.LogExclude;
+import io.github.summerwenlabs.log.mask.strategy.MaskStrategyRegistry;
 
 /**
  * Replaces Jackson property writers with governance-aware log-only writers.

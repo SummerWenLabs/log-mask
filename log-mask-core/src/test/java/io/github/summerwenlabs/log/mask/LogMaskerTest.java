@@ -29,6 +29,11 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import io.github.summerwenlabs.log.mask.governance.LogExclude;
+import io.github.summerwenlabs.log.mask.governance.Mask;
+import io.github.summerwenlabs.log.mask.governance.MaskType;
+import io.github.summerwenlabs.log.mask.strategy.MaskStrategyRegistry;
+import io.github.summerwenlabs.log.mask.strategy.MaskTypeDefinition;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
@@ -223,6 +228,33 @@ class LogMaskerTest {
             assertTrue(messages.contains("invalid_mode"));
             assertTrue(messages.contains("conflicting_declarations"));
             assertFalse(messages.contains("must-not-appear"));
+        }
+    }
+
+    @Test
+    void invalidUnicodeBoundaryCodesAndUnknownCodeHaveDistinctDiagnostics() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        LogMasker masker = LogMasker.builder(mapper).build();
+        CustomCodeValidationValue value = new CustomCodeValidationValue();
+        try (LogCapture diagnostics = new LogCapture()) {
+            JsonNode result = mapper.readTree(masker.mask(value));
+
+            assertEquals("<redacted>", result.path("leadingSpaceChar").textValue());
+            assertEquals("<redacted>", result.path("trailingWhitespace").textValue());
+            assertEquals("<redacted>", result.path("unknownCode").textValue());
+            assertEquals(0, value.secretReads);
+            assertEquals(3, diagnostics.events().size());
+            List<String> messages = new ArrayList<String>();
+            for (ILoggingEvent event : diagnostics.events()) {
+                messages.add(event.getFormattedMessage());
+            }
+            String renderedMessages = messages.toString();
+            assertTrue(renderedMessages.contains(
+                    "property=leadingSpaceChar, reason=invalid_mode"));
+            assertTrue(renderedMessages.contains(
+                    "property=trailingWhitespace, reason=invalid_mode"));
+            assertTrue(renderedMessages.contains(
+                    "property=unknownCode, reason=unknown_type_code"));
         }
     }
 
@@ -778,6 +810,28 @@ class LogMaskerTest {
         public String getMixedMode() {
             secretReads++;
             return "13800138000";
+        }
+    }
+
+    private static final class CustomCodeValidationValue {
+        private int secretReads;
+
+        @Mask(typeCode = "\u2007UNKNOWN")
+        public String getLeadingSpaceChar() {
+            secretReads++;
+            return "must-not-appear";
+        }
+
+        @Mask(typeCode = "UNKNOWN\t")
+        public String getTrailingWhitespace() {
+            secretReads++;
+            return "must-not-appear";
+        }
+
+        @Mask(typeCode = "UNKNOWN")
+        public String getUnknownCode() {
+            secretReads++;
+            return "must-not-appear";
         }
     }
 

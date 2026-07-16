@@ -3,6 +3,9 @@ package io.github.summerwenlabs.log.mask;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
+import io.github.summerwenlabs.log.mask.governance.MaskType;
+import io.github.summerwenlabs.log.mask.strategy.MaskStrategies;
+import io.github.summerwenlabs.log.mask.strategy.MaskTypeDefinition;
 
 /**
  * Writes a string property through a content masking strategy.

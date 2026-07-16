@@ -10,7 +10,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import org.slf4j.LoggerFactory;
 
-final class CapturedHttpEvents implements AutoCloseable {
+public final class CapturedHttpEvents implements AutoCloseable {
 
     private static final String EVENT_LOGGER_NAME = "log.mask.http";
 
@@ -19,21 +19,21 @@ final class CapturedHttpEvents implements AutoCloseable {
     private final boolean originalAdditive = logger.isAdditive();
     private final ListAppender<ILoggingEvent> appender = new ListAppender<ILoggingEvent>();
 
-    CapturedHttpEvents() {
+    public CapturedHttpEvents() {
         appender.start();
         logger.setLevel(Level.INFO);
         logger.setAdditive(false);
         logger.addAppender(appender);
     }
 
-    List<ILoggingEvent> getEvents() {
+    public List<ILoggingEvent> getEvents() {
         synchronized (appender) {
             return Collections.unmodifiableList(
                     new ArrayList<ILoggingEvent>(appender.list));
         }
     }
 
-    void disableInfo() {
+    public void disableInfo() {
         logger.setLevel(Level.WARN);
     }
 

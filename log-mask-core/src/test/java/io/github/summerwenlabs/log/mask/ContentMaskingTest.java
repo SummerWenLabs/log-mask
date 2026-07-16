@@ -4,6 +4,10 @@ import java.util.Arrays;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.summerwenlabs.log.mask.governance.Mask;
+import io.github.summerwenlabs.log.mask.governance.MaskType;
+import io.github.summerwenlabs.log.mask.strategy.MaskStrategyRegistry;
+import io.github.summerwenlabs.log.mask.strategy.MaskTypeDefinition;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

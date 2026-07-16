@@ -11,14 +11,15 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import io.github.summerwenlabs.log.mask.http.HttpExchangeEvent;
-import io.github.summerwenlabs.log.mask.http.HttpExchangeEventWriter;
-import io.github.summerwenlabs.log.mask.http.HttpExchangeRequest;
-import io.github.summerwenlabs.log.mask.http.HttpExchangeResponse;
-import io.github.summerwenlabs.log.mask.http.HttpRequestUri;
 import io.github.summerwenlabs.log.mask.http.NameValueCollection;
 import io.github.summerwenlabs.log.mask.http.RegionState;
-import io.github.summerwenlabs.log.mask.MaskStrategyRegistry;
+import io.github.summerwenlabs.log.mask.http.exchange.HttpExchangeEvent;
+import io.github.summerwenlabs.log.mask.http.exchange.HttpExchangeEventWriter;
+import io.github.summerwenlabs.log.mask.http.exchange.HttpExchangeRequest;
+import io.github.summerwenlabs.log.mask.http.exchange.HttpExchangeResponse;
+import io.github.summerwenlabs.log.mask.http.governance.HttpHeaderGovernance;
+import io.github.summerwenlabs.log.mask.http.governance.HttpRequestUri;
+import io.github.summerwenlabs.log.mask.strategy.MaskStrategyRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -287,7 +288,7 @@ final class RestTemplateObservationRuntime {
         if (!settings.isGovernanceEnabled()) {
             return eventRequest.headers(RegionState.SUCCESS, headers).build();
         }
-        io.github.summerwenlabs.log.mask.http.HttpHeaderGovernance.Result governed =
+        HttpHeaderGovernance.Result governed =
                 settings.getRequestHeaderGovernance().govern(uri.getHost(), headers);
         return eventRequest.headers(governed.getState(), governed.getHeaders()).build();
     }
@@ -306,7 +307,7 @@ final class RestTemplateObservationRuntime {
         if (!settings.isGovernanceEnabled()) {
             return eventResponse.headers(RegionState.SUCCESS, headers).build();
         }
-        io.github.summerwenlabs.log.mask.http.HttpHeaderGovernance.Result governed =
+        HttpHeaderGovernance.Result governed =
                 settings.getResponseHeaderGovernance().govern(
                         scope.request.getUri().getHost(), headers);
         return eventResponse.headers(governed.getState(), governed.getHeaders()).build();

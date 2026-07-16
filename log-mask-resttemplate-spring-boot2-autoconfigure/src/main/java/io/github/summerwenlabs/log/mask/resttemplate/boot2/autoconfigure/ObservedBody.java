@@ -1,7 +1,7 @@
 package io.github.summerwenlabs.log.mask.resttemplate.boot2.autoconfigure;
 
-import io.github.summerwenlabs.log.mask.http.JsonValue;
 import io.github.summerwenlabs.log.mask.http.RegionState;
+import io.github.summerwenlabs.log.mask.http.exchange.JsonValue;
 
 /**
  * Pairs one body log value with its final execution state.

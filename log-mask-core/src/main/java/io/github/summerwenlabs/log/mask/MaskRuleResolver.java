@@ -4,6 +4,10 @@ import java.util.regex.PatternSyntaxException;
 
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
+import io.github.summerwenlabs.log.mask.governance.Mask;
+import io.github.summerwenlabs.log.mask.governance.MaskType;
+import io.github.summerwenlabs.log.mask.strategy.MaskStrategyRegistry;
+import io.github.summerwenlabs.log.mask.strategy.MaskTypeDefinition;
 
 /**
  * Resolves field and getter annotations into one deterministic property rule.
@@ -55,7 +59,7 @@ final class MaskRuleResolver {
     }
 
     private MaskRule resolveCustomCode(Mask mask) {
-        if (!MaskTypeCode.isValid(mask.typeCode())
+        if (!isValidTypeCode(mask.typeCode())
                 || !mask.pattern().isEmpty()
                 || !mask.replacement().isEmpty()) {
             return MaskRule.redact(MaskFailureReason.INVALID_MODE);
@@ -82,5 +86,18 @@ final class MaskRuleResolver {
             AnnotatedMember member,
             Class<A> annotationType) {
         return member == null ? null : member.getAnnotation(annotationType);
+    }
+
+    private static boolean isValidTypeCode(String value) {
+        if (value == null || value.isEmpty()) {
+            return false;
+        }
+        int first = value.codePointAt(0);
+        int last = value.codePointBefore(value.length());
+        return !isWhitespace(first) && !isWhitespace(last);
+    }
+
+    private static boolean isWhitespace(int codePoint) {
+        return Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint);
     }
 }

@@ -1,8 +1,8 @@
 package io.github.summerwenlabs.log.mask.samples;
 
-import io.github.summerwenlabs.log.mask.LogExclude;
-import io.github.summerwenlabs.log.mask.Mask;
-import io.github.summerwenlabs.log.mask.MaskType;
+import io.github.summerwenlabs.log.mask.governance.LogExclude;
+import io.github.summerwenlabs.log.mask.governance.Mask;
+import io.github.summerwenlabs.log.mask.governance.MaskType;
 
 /**
  * Provides a request and response model for typed JSON body governance.
