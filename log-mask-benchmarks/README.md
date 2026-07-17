@@ -5,7 +5,7 @@
 
 ## 场景
 
-所有场景都通过相同的内存 `ClientHttpRequestFactory` 执行本地 HTTP 交换，并由
+所有场景都通过相同的内存 `ClientHttpRequestFactory` 执行本地 HTTP 调用，并由
 `RestTemplate` 正常关闭和消费响应；没有网络、磁盘或控制台 I/O。logging 开启时，
 `log.mask.http` 被显式设为 INFO，并连接 Logback 的 `NOPAppender`；同时将 Spring 调试 logger
 压到 WARN。因此仍会执行事件采集、治理和 JSON 生成，只丢弃最终日志事件，且不让框架调试输出
@@ -13,9 +13,9 @@
 
 | JMH 方法 | 场景 |
 | --- | --- |
-| `nativeRestTemplate` | 不含 starter 与观测链的原生无 body `RestTemplate` 交换。 |
+| `nativeRestTemplate` | 不含 starter 与观测链的原生无 body `RestTemplate` 调用。 |
 | `starterPresentLoggingDisabled` | starter/自动配置存在，`logging.enabled=false`，确认未安装观测 interceptor。 |
-| `loggingEnabledNoBody` | logging 开启的无 body GET/204 交换。 |
+| `loggingEnabledNoBody` | logging 开启的无 body GET/204 调用。 |
 | `loggingEnabledTypedDtoOneKiB` | logging 开启的 1 KiB 类型化 JSON DTO POST/响应消费。 |
 | `loggingEnabledTypedDtoSixtyFourKiB` | logging 开启的 64 KiB 类型化 JSON DTO POST/响应消费。 |
 

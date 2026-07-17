@@ -14,6 +14,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -55,6 +56,7 @@ public class LogMaskRestTemplateAutoConfiguration {
             matchIfMissing = true)
     static RestTemplateObservationInstaller restTemplateObservationInstaller(
             ConfigurableListableBeanFactory beanFactory,
+            ApplicationContext applicationContext,
             Environment environment,
             ObjectProvider<RestTemplateObservationConfigurer> configurers,
             ObjectProvider<MaskTypeDefinition> maskTypeDefinitions) {
@@ -74,6 +76,7 @@ public class LogMaskRestTemplateAutoConfiguration {
                 beanFactory,
                 properties,
                 settings,
-                configurers);
+                configurers,
+                new RestTemplateAdapterStartupSummary(applicationContext.getId()));
     }
 }

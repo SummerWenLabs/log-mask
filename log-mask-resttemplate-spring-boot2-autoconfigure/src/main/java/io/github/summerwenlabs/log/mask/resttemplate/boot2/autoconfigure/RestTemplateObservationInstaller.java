@@ -4,9 +4,11 @@ package io.github.summerwenlabs.log.mask.resttemplate.boot2.autoconfigure;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import io.github.summerwenlabs.log.mask.resttemplate.boot2.ObservedRestTemplate;
 import io.github.summerwenlabs.log.mask.resttemplate.boot2.RestTemplateObservationConfigurer;
@@ -41,21 +43,30 @@ final class RestTemplateObservationInstaller
     private final RestTemplateObservationProperties properties;
     private final RestTemplateObservationSettings settings;
     private final ObjectProvider<RestTemplateObservationConfigurer> configurerProvider;
-    private final Map<RestTemplate, String> pendingConfigurerCandidates =
-            new IdentityHashMap<RestTemplate, String>();
-    private volatile List<RestTemplateObservationConfigurer> configurers =
-            Collections.emptyList();
-    private volatile boolean configurersResolved;
+    private final RestTemplateAdapterStartupSummary startupSummary;
+    private final RestTemplateConfigurerPhase configurerPhase =
+            new RestTemplateConfigurerPhase();
+    /*
+     * Startup installs and sealing take this monitor before a RestTemplate
+     * monitor. The fixed order makes install-and-record atomic with sealing.
+     */
+    private final Object startupObservationMonitor = new Object();
+    private Map<RestTemplate, Set<String>> startupObservations =
+            new IdentityHashMap<RestTemplate, Set<String>>();
+    private volatile RestTemplateObservationSnapshot startupObservationSnapshot =
+            RestTemplateObservationSnapshot.empty();
 
     RestTemplateObservationInstaller(
             ConfigurableListableBeanFactory beanFactory,
             RestTemplateObservationProperties properties,
             RestTemplateObservationSettings settings,
-            ObjectProvider<RestTemplateObservationConfigurer> configurers) {
+            ObjectProvider<RestTemplateObservationConfigurer> configurers,
+            RestTemplateAdapterStartupSummary startupSummary) {
         this.beanFactory = beanFactory;
         this.properties = properties;
         this.settings = settings;
         this.configurerProvider = configurers;
+        this.startupSummary = startupSummary;
     }
 
     @Override
@@ -65,14 +76,16 @@ final class RestTemplateObservationInstaller
         }
         RestTemplate restTemplate = (RestTemplate) bean;
         if (isConfiguredName(beanName) || isAnnotated(beanName)) {
-            install(restTemplate);
-        } else if (configurersResolved) {
-            if (isSelectedByConfigurer(beanName, restTemplate)) {
-                install(restTemplate);
-            }
+            install(beanName, restTemplate);
         } else {
-            synchronized (pendingConfigurerCandidates) {
-                pendingConfigurerCandidates.put(restTemplate, beanName);
+            List<RestTemplateObservationConfigurer> resolvedConfigurers =
+                    configurerPhase.submit(beanName, restTemplate);
+            if (resolvedConfigurers != null
+                    && isSelectedByConfigurer(
+                            resolvedConfigurers,
+                            beanName,
+                            restTemplate)) {
+                install(beanName, restTemplate);
             }
         }
         return bean;
@@ -89,21 +102,32 @@ final class RestTemplateObservationInstaller
         for (RestTemplateObservationConfigurer configurer : configurerProvider) {
             resolved.add(configurer);
         }
-        configurers = Collections.unmodifiableList(resolved);
-        configurersResolved = true;
-        applyConfigurersToPendingCandidates();
-        applyConfigurersToExistingSingletons();
+        List<RestTemplateObservationConfigurer> resolvedConfigurers =
+                Collections.unmodifiableList(resolved);
+        List<RestTemplateConfigurerPhase.Candidate> pendingCandidates =
+                configurerPhase.resolve(resolvedConfigurers);
+        applyConfigurersToPendingCandidates(
+                resolvedConfigurers,
+                pendingCandidates);
+        applyConfigurersToExistingSingletons(resolvedConfigurers);
+        startupObservationSnapshot = sealStartupObservationSnapshot();
+        startupSummary.publish(startupObservationSnapshot);
     }
 
-    private void applyConfigurersToPendingCandidates() {
-        synchronized (pendingConfigurerCandidates) {
-            for (Map.Entry<RestTemplate, String> candidate
-                    : pendingConfigurerCandidates.entrySet()) {
-                if (isSelectedByConfigurer(candidate.getValue(), candidate.getKey())) {
-                    install(candidate.getKey());
-                }
+    RestTemplateObservationSnapshot getStartupObservationSnapshot() {
+        return startupObservationSnapshot;
+    }
+
+    private void applyConfigurersToPendingCandidates(
+            List<RestTemplateObservationConfigurer> resolvedConfigurers,
+            List<RestTemplateConfigurerPhase.Candidate> pendingCandidates) {
+        for (RestTemplateConfigurerPhase.Candidate candidate : pendingCandidates) {
+            if (isSelectedByConfigurer(
+                    resolvedConfigurers,
+                    candidate.getBeanName(),
+                    candidate.getRestTemplate())) {
+                install(candidate.getBeanName(), candidate.getRestTemplate());
             }
-            pendingConfigurerCandidates.clear();
         }
     }
 
@@ -113,9 +137,11 @@ final class RestTemplateObservationInstaller
             return;
         }
         for (String beanName : beanNames) {
-            if (!beanFactory.containsBean(beanName)) {
+            if (!beanFactory.containsLocalBean(beanName)) {
                 throw new IllegalStateException(
-                        "Configured observed RestTemplate bean '" + beanName + "' does not exist");
+                        "Configured observed RestTemplate bean '"
+                                + beanName
+                                + "' must be defined in the local ApplicationContext");
             }
             Class<?> beanType = beanFactory.getType(beanName, false);
             if (beanType == null || !RestTemplate.class.isAssignableFrom(beanType)) {
@@ -125,7 +151,8 @@ final class RestTemplateObservationInstaller
         }
     }
 
-    private void applyConfigurersToExistingSingletons() {
+    private void applyConfigurersToExistingSingletons(
+            List<RestTemplateObservationConfigurer> resolvedConfigurers) {
         String[] beanNames = beanFactory.getBeanNamesForType(RestTemplate.class, true, false);
         for (String beanName : beanNames) {
             Object singleton = beanFactory.getSingleton(beanName);
@@ -133,15 +160,21 @@ final class RestTemplateObservationInstaller
                 RestTemplate restTemplate = (RestTemplate) singleton;
                 if (isConfiguredName(beanName)
                         || isAnnotated(beanName)
-                        || isSelectedByConfigurer(beanName, restTemplate)) {
-                    install(restTemplate);
+                        || isSelectedByConfigurer(
+                                resolvedConfigurers,
+                                beanName,
+                                restTemplate)) {
+                    install(beanName, restTemplate);
                 }
             }
         }
     }
 
-    private boolean isSelectedByConfigurer(String beanName, RestTemplate restTemplate) {
-        for (RestTemplateObservationConfigurer configurer : configurers) {
+    private boolean isSelectedByConfigurer(
+            List<RestTemplateObservationConfigurer> resolvedConfigurers,
+            String beanName,
+            RestTemplate restTemplate) {
+        for (RestTemplateObservationConfigurer configurer : resolvedConfigurers) {
             if (configurer.shouldObserve(beanName, restTemplate)) {
                 return true;
             }
@@ -180,16 +213,88 @@ final class RestTemplateObservationInstaller
         return false;
     }
 
-    private void install(RestTemplate restTemplate) {
-        for (Object interceptor : restTemplate.getInterceptors()) {
-            if (interceptor instanceof ExchangeLoggingInterceptor) {
-                return;
+    InstallationResult install(RestTemplate restTemplate) {
+        synchronized (restTemplate) {
+            return installLocked(restTemplate);
+        }
+    }
+
+    private InstallationResult install(String beanName, RestTemplate restTemplate) {
+        synchronized (startupObservationMonitor) {
+            if (startupObservations != null) {
+                synchronized (restTemplate) {
+                    InstallationResult result = installLocked(restTemplate);
+                    recordStartupObservationLocked(beanName, restTemplate);
+                    return result;
+                }
             }
+        }
+        return install(restTemplate);
+    }
+
+    private InstallationResult installLocked(RestTemplate restTemplate) {
+        if (hasObservationChainLocked(restTemplate)) {
+            return InstallationResult.ALREADY_OBSERVED;
         }
         RestTemplateObservationRuntime runtime =
                 new RestTemplateObservationRuntime(settings);
         decorateSupportedConverters(restTemplate, runtime);
         restTemplate.getInterceptors().add(0, new ExchangeLoggingInterceptor(runtime));
+        return InstallationResult.INSTALLED;
+    }
+
+    private RestTemplateObservationSnapshot sealStartupObservationSnapshot() {
+        Map<RestTemplate, Set<String>> sealedObservations;
+        synchronized (startupObservationMonitor) {
+            String[] beanNames = beanFactory.getBeanNamesForType(
+                    RestTemplate.class,
+                    true,
+                    false);
+            for (String beanName : beanNames) {
+                Object singleton = beanFactory.getSingleton(beanName);
+                if (singleton instanceof RestTemplate) {
+                    RestTemplate restTemplate = (RestTemplate) singleton;
+                    synchronized (restTemplate) {
+                        if (hasObservationChainLocked(restTemplate)) {
+                            recordStartupObservationLocked(beanName, restTemplate);
+                        }
+                    }
+                }
+            }
+            sealedObservations = startupObservations;
+            startupObservations = null;
+        }
+        Set<String> observedBeanNames = new HashSet<String>();
+        for (Set<String> beanNamesForInstance : sealedObservations.values()) {
+            observedBeanNames.addAll(beanNamesForInstance);
+        }
+        List<String> sortedBeanNames = new ArrayList<String>(observedBeanNames);
+        Collections.sort(sortedBeanNames);
+        int observedInstanceCount = sealedObservations.size();
+        sealedObservations.clear();
+        return new RestTemplateObservationSnapshot(
+                observedInstanceCount,
+                sortedBeanNames);
+    }
+
+    private void recordStartupObservationLocked(
+            String beanName,
+            RestTemplate restTemplate) {
+        Set<String> beanNames = startupObservations.get(restTemplate);
+        if (beanNames == null) {
+            beanNames = new HashSet<String>();
+            startupObservations.put(restTemplate, beanNames);
+        }
+        beanNames.add(beanName);
+    }
+
+    private static boolean hasObservationChainLocked(RestTemplate restTemplate) {
+        for (Object interceptor : restTemplate.getInterceptors()) {
+            if (interceptor instanceof ExchangeLoggingInterceptor) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void decorateSupportedConverters(
@@ -218,5 +323,10 @@ final class RestTemplateObservationInstaller
                                 runtime));
             }
         }
+    }
+
+    enum InstallationResult {
+        INSTALLED,
+        ALREADY_OBSERVED
     }
 }

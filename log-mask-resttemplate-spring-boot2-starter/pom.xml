@@ -23,5 +23,66 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.2.5</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <systemPropertyVariables>
+                        <repository.root>${project.basedir}/..</repository.root>
+                        <artifact.version>${project.version}</artifact.version>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-invoker-plugin</artifactId>
+                <version>3.8.1</version>
+                <executions>
+                    <execution>
+                        <id>verify-starter-only-consumer</id>
+                        <goals>
+                            <goal>install</goal>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <projectsDirectory>${project.basedir}/src/it</projectsDirectory>
+                            <cloneProjectsTo>${project.build.directory}/invoker-projects</cloneProjectsTo>
+                            <localRepositoryPath>${project.build.directory}/invoker-repository</localRepositoryPath>
+                            <goals>
+                                <goal>verify</goal>
+                            </goals>
+                            <properties>
+                                <log-mask.version>${project.version}</log-mask.version>
+                                <spring-boot.version>${spring-boot.version}</spring-boot.version>
+                            </properties>
+                            <extraArtifacts>
+                                <extraArtifact>
+                                    io.github.summerwenlabs:log-mask-resttemplate-spring-boot2-autoconfigure:${project.version}:jar:sources
+                                </extraArtifact>
+                            </extraArtifacts>
+                            <streamLogs>true</streamLogs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

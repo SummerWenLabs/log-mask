@@ -47,4 +47,20 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+            </resource>
+            <resource>
+                <directory>src/main/build-resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>META-INF/log-mask-resttemplate-adapter-build.properties</include>
+                </includes>
+            </resource>
+        </resources>
+    </build>
 </project>

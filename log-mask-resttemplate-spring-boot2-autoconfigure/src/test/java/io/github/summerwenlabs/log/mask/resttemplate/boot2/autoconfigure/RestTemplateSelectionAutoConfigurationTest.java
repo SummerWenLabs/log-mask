@@ -2,6 +2,8 @@
 
 package io.github.summerwenlabs.log.mask.resttemplate.boot2.autoconfigure;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import io.github.summerwenlabs.log.mask.resttemplate.boot2.ObservedRestTemplate;
@@ -16,6 +18,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.boot.web.client.RestTemplateCustomizer;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -97,6 +100,32 @@ class RestTemplateSelectionAutoConfigurationTest {
     }
 
     @Test
+    void configuredAliasObservesCanonicalBeanAndSnapshotOmitsAlias() {
+        contextRunner
+                .withPropertyValues(
+                        "log-mask.logging.rest-template.observed-bean-names=templateAlias")
+                .withUserConfiguration(AliasedTemplate.class)
+                .run(context -> {
+                    RestTemplate restTemplate = context.getBean(
+                            "canonicalTemplate",
+                            RestTemplate.class);
+                    RestTemplateObservationSnapshot snapshot = context
+                            .getBean(RestTemplateObservationInstaller.class)
+                            .getStartupObservationSnapshot();
+
+                    assertEquals(
+                            1,
+                            restTemplate.getInterceptors().stream()
+                                    .filter(ExchangeLoggingInterceptor.class::isInstance)
+                                    .count());
+                    assertEquals(1, snapshot.getObservedInstanceCountAtStartup());
+                    assertEquals(
+                            Collections.singletonList("canonicalTemplate"),
+                            snapshot.getObservedBeanNamesAtStartup());
+                });
+    }
+
+    @Test
     void javaConfigurerSelectionObservesMatchingInstance() {
         contextRunner.withUserConfiguration(ConfiguredTemplate.class).run(context -> {
             RestTemplate selected = context.getBean("configured", RestTemplate.class);
@@ -122,6 +151,13 @@ class RestTemplateSelectionAutoConfigurationTest {
                 .withUserConfiguration(DuplicateSelection.class)
                 .run(context -> {
                     RestTemplate shared = context.getBean("shared", RestTemplate.class);
+                    RestTemplateObservationSnapshot snapshot = context
+                            .getBean(RestTemplateObservationInstaller.class)
+                            .getStartupObservationSnapshot();
+                    assertEquals(1, snapshot.getObservedInstanceCountAtStartup());
+                    assertEquals(
+                            Collections.singletonList("shared"),
+                            snapshot.getObservedBeanNamesAtStartup());
                     MockRestServiceServer server = MockRestServiceServer.bindTo(shared).build();
                     server.expect(once(), requestTo("https://api.example.com/shared"))
                             .andRespond(withStatus(HttpStatus.NO_CONTENT));
@@ -153,6 +189,61 @@ class RestTemplateSelectionAutoConfigurationTest {
                     assertNotNull(startupFailure);
                     assertTrue(startupFailure.getMessage().contains("wrong"));
                     assertTrue(startupFailure.getMessage().contains("RestTemplate"));
+                });
+    }
+
+    @Test
+    void childNameSelectionRejectsBeanOwnedOnlyByParentContext() {
+        AnnotationConfigApplicationContext parent = new AnnotationConfigApplicationContext();
+        parent.register(ParentTemplate.class);
+        parent.refresh();
+        try {
+            contextRunner
+                    .withParent(parent)
+                    .withPropertyValues(
+                            "log-mask.logging.rest-template.observed-bean-names=parentTemplate")
+                    .run(context -> {
+                        Throwable startupFailure = context.getStartupFailure();
+                        assertNotNull(startupFailure);
+                        assertTrue(startupFailure.getMessage().contains("parentTemplate"));
+                        assertTrue(startupFailure.getMessage()
+                                .contains("local ApplicationContext"));
+                    });
+        } finally {
+            parent.close();
+        }
+    }
+
+    @Test
+    void parentInstallerObservesParentBeanWithoutChildReinstallation() {
+        contextRunner
+                .withPropertyValues(
+                        "log-mask.logging.rest-template.observed-bean-names=parentTemplate")
+                .withUserConfiguration(ParentTemplate.class)
+                .run(parent -> {
+                    RestTemplate parentTemplate = parent.getBean(
+                            "parentTemplate",
+                            RestTemplate.class);
+                    assertEquals(
+                            1,
+                            parentTemplate.getInterceptors().stream()
+                                    .filter(ExchangeLoggingInterceptor.class::isInstance)
+                                    .count());
+
+                    contextRunner
+                            .withParent(parent)
+                            .withPropertyValues(
+                                    "log-mask.logging.rest-template.observed-bean-names=")
+                            .run(child -> {
+                                assertNull(child.getStartupFailure());
+                                assertSame(parentTemplate, child.getBean("parentTemplate"));
+                                assertEquals(
+                                        1,
+                                        parentTemplate.getInterceptors().stream()
+                                                .filter(
+                                                        ExchangeLoggingInterceptor.class::isInstance)
+                                                .count());
+                            });
                 });
     }
 
@@ -215,8 +306,41 @@ class RestTemplateSelectionAutoConfigurationTest {
     }
 
     @Test
+    void annotatedLazyRestTemplateIsObservedOnlyWhenFirstCreated() {
+        contextRunner.withUserConfiguration(LazySelectedTemplate.class).run(context -> {
+            AtomicInteger creations = context.getBean(AtomicInteger.class);
+            RestTemplateObservationInstaller installer =
+                    context.getBean(RestTemplateObservationInstaller.class);
+            RestTemplateObservationSnapshot snapshot =
+                    installer.getStartupObservationSnapshot();
+            assertEquals(0, creations.get());
+            assertEquals(0, snapshot.getObservedInstanceCountAtStartup());
+            assertTrue(snapshot.getObservedBeanNamesAtStartup().isEmpty());
+
+            RestTemplate lazy = context.getBean("lazySelected", RestTemplate.class);
+
+            assertEquals(1, creations.get());
+            assertEquals(
+                    1,
+                    lazy.getInterceptors().stream()
+                            .filter(ExchangeLoggingInterceptor.class::isInstance)
+                            .count());
+            assertEquals(0, snapshot.getObservedInstanceCountAtStartup());
+            assertTrue(snapshot.getObservedBeanNamesAtStartup().isEmpty());
+            assertSame(snapshot, installer.getStartupObservationSnapshot());
+        });
+    }
+
+    @Test
     void annotatedPrototypeIsObservedForEveryCreatedInstance() {
         contextRunner.withUserConfiguration(PrototypeTemplate.class).run(context -> {
+            RestTemplateObservationInstaller installer =
+                    context.getBean(RestTemplateObservationInstaller.class);
+            RestTemplateObservationSnapshot snapshot =
+                    installer.getStartupObservationSnapshot();
+            assertEquals(0, snapshot.getObservedInstanceCountAtStartup());
+            assertTrue(snapshot.getObservedBeanNamesAtStartup().isEmpty());
+
             RestTemplate first = context.getBean("prototype", RestTemplate.class);
             RestTemplate second = context.getBean("prototype", RestTemplate.class);
             MockRestServiceServer firstServer = MockRestServiceServer.bindTo(first).build();
@@ -228,6 +352,10 @@ class RestTemplateSelectionAutoConfigurationTest {
 
             first.getForEntity("https://api.example.com/prototype/1", Void.class);
             second.getForEntity("https://api.example.com/prototype/2", Void.class);
+
+            assertEquals(0, snapshot.getObservedInstanceCountAtStartup());
+            assertTrue(snapshot.getObservedBeanNamesAtStartup().isEmpty());
+            assertSame(snapshot, installer.getStartupObservationSnapshot());
         });
 
         assertEquals(2, events.getEvents().size());
@@ -260,9 +388,43 @@ class RestTemplateSelectionAutoConfigurationTest {
     }
 
     @Test
+    void startupObservationCountsSharedInstanceOnceAndKeepsIndependentBeanNames() {
+        RestTemplate shared = new RestTemplate();
+        contextRunner
+                .withInitializer(context -> {
+                    context.getBeanFactory().registerSingleton("alphaTemplate", shared);
+                    context.getBeanFactory().registerSingleton("betaTemplate", shared);
+                })
+                .withPropertyValues(
+                        "log-mask.logging.rest-template.observed-bean-names=alphaTemplate")
+                .run(context -> {
+                    RestTemplateObservationSnapshot snapshot = context
+                            .getBean(RestTemplateObservationInstaller.class)
+                            .getStartupObservationSnapshot();
+
+                    assertEquals(1, snapshot.getObservedInstanceCountAtStartup());
+                    assertEquals(
+                            Arrays.asList("alphaTemplate", "betaTemplate"),
+                            snapshot.getObservedBeanNamesAtStartup());
+                    assertEquals(
+                            1,
+                            shared.getInterceptors().stream()
+                                    .filter(ExchangeLoggingInterceptor.class::isInstance)
+                                    .count());
+                });
+    }
+
+    @Test
     void configurerSelectsPrototypeCreatedDuringSingletonInitialization() {
         contextRunner.withUserConfiguration(EarlyPrototypeTemplate.class).run(context -> {
             RestTemplate prototype = context.getBean(PrototypeHolder.class).restTemplate;
+            RestTemplateObservationSnapshot snapshot = context
+                    .getBean(RestTemplateObservationInstaller.class)
+                    .getStartupObservationSnapshot();
+            assertEquals(1, snapshot.getObservedInstanceCountAtStartup());
+            assertEquals(
+                    Collections.singletonList("configuredPrototype"),
+                    snapshot.getObservedBeanNamesAtStartup());
             MockRestServiceServer server = MockRestServiceServer.bindTo(prototype).build();
             server.expect(once(), requestTo("https://api.example.com/early-prototype"))
                     .andRespond(withStatus(HttpStatus.NO_CONTENT));
@@ -298,6 +460,15 @@ class RestTemplateSelectionAutoConfigurationTest {
 
         @Bean
         RestTemplate untouched() {
+            return new RestTemplate();
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class AliasedTemplate {
+
+        @Bean({"canonicalTemplate", "templateAlias"})
+        RestTemplate aliasedTemplate() {
             return new RestTemplate();
         }
     }
@@ -346,6 +517,15 @@ class RestTemplateSelectionAutoConfigurationTest {
     }
 
     @Configuration(proxyBeanMethods = false)
+    static class ParentTemplate {
+
+        @Bean
+        RestTemplate parentTemplate() {
+            return new RestTemplate();
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
     static class LazyUnselectedTemplate {
 
         @Bean
@@ -357,6 +537,23 @@ class RestTemplateSelectionAutoConfigurationTest {
         @Lazy
         RestTemplate lazyUnselected(AtomicInteger lazyCreations) {
             lazyCreations.incrementAndGet();
+            return new RestTemplate();
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class LazySelectedTemplate {
+
+        @Bean
+        AtomicInteger lazySelectedCreations() {
+            return new AtomicInteger();
+        }
+
+        @Bean
+        @Lazy
+        @ObservedRestTemplate
+        RestTemplate lazySelected(AtomicInteger lazySelectedCreations) {
+            lazySelectedCreations.incrementAndGet();
             return new RestTemplate();
         }
     }

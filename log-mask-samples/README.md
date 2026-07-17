@@ -18,7 +18,7 @@ java -jar log-mask-samples/target/log-mask-samples-0.1.0-SNAPSHOT.jar
 | `POST` | `/samples/customers/customer-42?token=actual-token&visible=ok` | 类型化 JSON、`@Mask`、`@LogExclude`、path/query/request header/response header 治理。 |
 | `POST` | `/samples/strings` | 内容看似 JSON 的 `String`，日志仍为 JSON string。 |
 | `POST` | `/samples/bytes` | `byte[]`，日志为 Base64 JSON string。 |
-| `GET` | `/samples/no-body` | `204 No Content` 的无 request/response body 交换。 |
+| `GET` | `/samples/no-body` | `204 No Content` 的无 request/response body 调用。 |
 
 `application.properties` 已选择 `COMPACT` name/value 形态，并配置上述客户请求的 URI、query 和 header `REDACT` 规则。日志治理不会改变端点收到的请求、响应 DTO 或 response header。
 
