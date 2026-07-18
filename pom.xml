@@ -26,6 +26,9 @@
         <module>log-mask-resttemplate-spring-boot2-autoconfigure</module>
         <module>log-mask-resttemplate-spring-boot2-starter</module>
         <module>log-mask-samples</module>
+        <module>log-mask-resttemplate-spring-boot3-autoconfigure</module>
+        <module>log-mask-resttemplate-spring-boot3-starter</module>
+        <module>log-mask-samples-spring-boot3</module>
     </modules>
 
     <properties>
@@ -33,7 +36,8 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
-        <spring-boot.version>2.7.18</spring-boot.version>
+        <spring-boot2.version>2.7.18</spring-boot2.version>
+        <spring-boot3.version>3.5.16</spring-boot3.version>
         <jmh.version>1.37</jmh.version>
     </properties>
 
@@ -42,7 +46,7 @@
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
-                <version>${spring-boot.version}</version>
+                <version>${spring-boot2.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -152,17 +156,31 @@
             <activation>
                 <jdk>[9,)</jdk>
             </activation>
+            <properties>
+                <maven.compiler.release>8</maven.compiler.release>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-compiler-plugin</artifactId>
                         <configuration>
-                            <release>8</release>
+                            <release>${maven.compiler.release}</release>
                         </configuration>
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+        <profile>
+            <id>legacy-spring-boot2-version-property</id>
+            <activation>
+                <property>
+                    <name>spring-boot.version</name>
+                </property>
+            </activation>
+            <properties>
+                <spring-boot2.version>${spring-boot.version}</spring-boot2.version>
+            </properties>
         </profile>
         <profile>
             <id>benchmarks</id>

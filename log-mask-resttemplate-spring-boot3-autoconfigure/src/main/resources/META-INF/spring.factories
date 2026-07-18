@@ -1,0 +1,2 @@
+org.springframework.boot.env.EnvironmentPostProcessor=\
+io.github.summerwenlabs.log.mask.resttemplate.boot3.autoconfigure.SpringBootGenerationVerifier

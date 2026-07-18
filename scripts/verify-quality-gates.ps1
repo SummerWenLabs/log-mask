@@ -1,9 +1,18 @@
 param(
     [string]$RepositoryRoot = (Split-Path -Parent $PSScriptRoot),
-    [string]$SpringBootVersion = '2.7.18'
+    [string]$SpringBoot2Version = '2.7.18',
+    [string]$SpringBoot3Version = '3.5.16'
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Get-ReactorModules {
+    [xml]$pom = Get-Content -Raw -LiteralPath (Join-Path $RepositoryRoot 'pom.xml')
+    $namespace = New-Object System.Xml.XmlNamespaceManager($pom.NameTable)
+    $namespace.AddNamespace('m', 'http://maven.apache.org/POM/4.0.0')
+    return @($pom.SelectNodes('/m:project/m:modules/m:module', $namespace) |
+        ForEach-Object { $_.InnerText })
+}
 
 function Get-ProjectDependencies([string]$pomPath) {
     [xml]$pom = Get-Content -Raw -LiteralPath $pomPath
@@ -18,7 +27,11 @@ function Assert-ProjectDependencies(
     [string]$module,
     [string[]]$allowedProjectDependencies
 ) {
-    $dependencies = Get-ProjectDependencies (Join-Path $RepositoryRoot "$module/pom.xml")
+    $pomPath = Join-Path $RepositoryRoot "$module/pom.xml"
+    if (-not (Test-Path -LiteralPath $pomPath)) {
+        throw "$module is listed in the module boundary gate but its pom.xml is missing."
+    }
+    $dependencies = Get-ProjectDependencies $pomPath
     $projectDependencies = @($dependencies | Where-Object { $_ -like 'io.github.summerwenlabs:log-mask-*' })
     $unexpected = @($projectDependencies | Where-Object { $allowedProjectDependencies -notcontains $_ })
     if ($unexpected.Count -gt 0) {
@@ -47,12 +60,23 @@ function Assert-NoSpringDependencies([string]$module) {
     }
 }
 
-function Assert-Java8Bytecode {
-    $classFiles = @(Get-ChildItem -LiteralPath $RepositoryRoot -Recurse -Filter '*.class' |
-        Where-Object { $_.FullName -match '[\\/]target[\\/](classes|test-classes)[\\/]' })
-    if ($classFiles.Count -eq 0) {
-        throw 'No compiled project classes were found; run mvn clean verify before this gate.'
+function Assert-ModuleBytecode(
+    [string]$module,
+    [int]$expectedMajorVersion,
+    [string]$javaVersion
+) {
+    $moduleRoot = Join-Path $RepositoryRoot $module
+    if (-not (Test-Path -LiteralPath $moduleRoot)) {
+        throw "$module is listed in the bytecode gate but its directory is missing."
     }
+    $classFiles = @(
+        foreach ($outputDirectory in @('classes', 'test-classes')) {
+            $outputRoot = Join-Path $moduleRoot "target/$outputDirectory"
+            if (Test-Path -LiteralPath $outputRoot) {
+                Get-ChildItem -LiteralPath $outputRoot -Recurse -Filter '*.class'
+            }
+        }
+    )
     foreach ($classFile in $classFiles) {
         [byte[]]$header = [System.IO.File]::ReadAllBytes($classFile.FullName)
         if ($header.Length -lt 8 -or $header[0] -ne 0xCA -or $header[1] -ne 0xFE -or
@@ -60,10 +84,12 @@ function Assert-Java8Bytecode {
             throw "$($classFile.FullName) is not a valid class file."
         }
         $major = ([int]$header[6] -shl 8) -bor [int]$header[7]
-        if ($major -gt 52) {
-            throw "$($classFile.FullName) has class-file major version $major; Java 8 requires at most 52."
+        if ($major -ne $expectedMajorVersion) {
+            throw "$($classFile.FullName) has class-file major version $major; " +
+                "$module requires Java $javaVersion class-file major version $expectedMajorVersion."
         }
     }
+    return $classFiles.Count
 }
 
 function Assert-ApacheLicenseHeaders {
@@ -90,7 +116,8 @@ function Assert-DependencyLicenses {
         '-Dlicense.failOnMissing=true' `
         '-Dlicense.force=true' `
         '-Dlicense.sortArtifactByName=true' `
-        "-Dspring-boot.version=$SpringBootVersion"
+        "-Dspring-boot2.version=$SpringBoot2Version" `
+        "-Dspring-boot3.version=$SpringBoot3Version"
     if ($LASTEXITCODE -ne 0) {
         throw 'Dependency license report generation failed.'
     }
@@ -101,26 +128,61 @@ function Assert-DependencyLicenses {
     }
 }
 
-Assert-ProjectDependencies 'log-mask-core' @()
-Assert-ProjectDependencies 'log-mask-http-core' @('io.github.summerwenlabs:log-mask-core')
-Assert-ProjectDependencies 'log-mask-resttemplate-spring-boot2-autoconfigure' @(
-    'io.github.summerwenlabs:log-mask-http-core'
-)
-Assert-ProjectDependencies 'log-mask-resttemplate-spring-boot2-starter' @(
-    'io.github.summerwenlabs:log-mask-resttemplate-spring-boot2-autoconfigure'
-)
-Assert-ProjectDependencies 'log-mask-samples' @(
-    'io.github.summerwenlabs:log-mask-resttemplate-spring-boot2-starter'
-)
-Assert-ProjectDependencies 'log-mask-benchmarks' @(
-    'io.github.summerwenlabs:log-mask-resttemplate-spring-boot2-starter'
-)
+$allowedProjectDependencies = @{
+    'log-mask-core' = @()
+    'log-mask-http-core' = @('io.github.summerwenlabs:log-mask-core')
+    'log-mask-resttemplate-spring-boot2-autoconfigure' = @(
+        'io.github.summerwenlabs:log-mask-http-core'
+    )
+    'log-mask-resttemplate-spring-boot2-starter' = @(
+        'io.github.summerwenlabs:log-mask-resttemplate-spring-boot2-autoconfigure'
+    )
+    'log-mask-samples' = @(
+        'io.github.summerwenlabs:log-mask-resttemplate-spring-boot2-starter'
+    )
+    'log-mask-resttemplate-spring-boot3-autoconfigure' = @(
+        'io.github.summerwenlabs:log-mask-http-core'
+    )
+    'log-mask-resttemplate-spring-boot3-starter' = @(
+        'io.github.summerwenlabs:log-mask-resttemplate-spring-boot3-autoconfigure'
+    )
+    'log-mask-samples-spring-boot3' = @(
+        'io.github.summerwenlabs:log-mask-resttemplate-spring-boot3-starter'
+    )
+    'log-mask-benchmarks' = @(
+        'io.github.summerwenlabs:log-mask-resttemplate-spring-boot2-starter'
+    )
+}
+
+$modules = @(Get-ReactorModules)
+if (Test-Path -LiteralPath (Join-Path $RepositoryRoot 'log-mask-benchmarks/pom.xml')) {
+    $modules += 'log-mask-benchmarks'
+}
+$unmappedModules = @($modules | Where-Object {
+    -not $allowedProjectDependencies.ContainsKey($_)
+})
+if ($unmappedModules.Count -gt 0) {
+    throw "Modules are missing dependency boundary definitions: $($unmappedModules -join ', ')"
+}
+foreach ($module in $modules) {
+    Assert-ProjectDependencies $module $allowedProjectDependencies[$module]
+}
 Assert-NoSpringDependencies 'log-mask-core'
 Assert-NoSpringDependencies 'log-mask-http-core'
 Assert-NoSpringImports 'log-mask-core'
 Assert-NoSpringImports 'log-mask-http-core'
-Assert-Java8Bytecode
+$compiledClassCount = 0
+foreach ($module in $modules) {
+    if ($module -like '*spring-boot3*') {
+        $compiledClassCount += Assert-ModuleBytecode $module 61 '17'
+    } else {
+        $compiledClassCount += Assert-ModuleBytecode $module 52 '8'
+    }
+}
+if ($compiledClassCount -eq 0) {
+    throw 'No compiled project classes were found; run mvn clean verify before this gate.'
+}
 Assert-ApacheLicenseHeaders
 Assert-DependencyLicenses
 
-Write-Host 'Quality gates passed: dependencies, licenses, Spring-free cores, and Java 8 bytecode.'
+Write-Host 'Quality gates passed: dependencies, licenses, Spring-free cores, and Java 8/17 bytecode.'

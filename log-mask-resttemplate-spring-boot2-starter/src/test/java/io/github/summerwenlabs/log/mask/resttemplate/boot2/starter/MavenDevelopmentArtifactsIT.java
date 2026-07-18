@@ -77,6 +77,9 @@ class MavenDevelopmentArtifactsIT {
         JarFile jar = new JarFile(jarPath(
                 "log-mask-resttemplate-spring-boot2-autoconfigure", null).toFile());
         try {
+            requiredEntry(jar, "META-INF/log-mask-resttemplate-spring-boot2.marker");
+            requiredEntry(jar, "META-INF/spring.factories");
+
             Properties buildProperties = new Properties();
             InputStream versionInput = jar.getInputStream(requiredEntry(jar,
                     "META-INF/log-mask-resttemplate-adapter-build.properties"));

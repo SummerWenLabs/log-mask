@@ -44,6 +44,12 @@ public class RestTemplateObservationProperties {
         return observedBeanNames;
     }
 
+    /**
+     * Replace the explicitly observed bean names.
+     *
+     * <p>A {@code null} value clears the selection. Non-null lists are copied.
+     * @param observedBeanNames bean names to select, or {@code null} for none
+     */
     public void setObservedBeanNames(List<String> observedBeanNames) {
         this.observedBeanNames = observedBeanNames == null
                 ? new ArrayList<String>()
@@ -54,6 +60,12 @@ public class RestTemplateObservationProperties {
         return uri;
     }
 
+    /**
+     * Replace the URI detail settings.
+     *
+     * <p>A {@code null} value restores the default settings.
+     * @param uri settings to use, or {@code null} to restore defaults
+     */
     public void setUri(Uri uri) {
         this.uri = uri == null ? new Uri() : uri;
     }
@@ -78,6 +90,12 @@ public class RestTemplateObservationProperties {
         return request;
     }
 
+    /**
+     * Replace the request-region settings.
+     *
+     * <p>A {@code null} value restores the default settings.
+     * @param request settings to use, or {@code null} to restore defaults
+     */
     public void setRequest(Region request) {
         this.request = request == null ? new Region() : request;
     }
@@ -86,6 +104,12 @@ public class RestTemplateObservationProperties {
         return response;
     }
 
+    /**
+     * Replace the response-region settings.
+     *
+     * <p>A {@code null} value restores the default settings.
+     * @param response settings to use, or {@code null} to restore defaults
+     */
     public void setResponse(Region response) {
         this.response = response == null ? new Region() : response;
     }
@@ -94,6 +118,12 @@ public class RestTemplateObservationProperties {
         return traceId;
     }
 
+    /**
+     * Replace the trace-ID lookup settings.
+     *
+     * <p>A {@code null} value restores the default settings.
+     * @param traceId settings to use, or {@code null} to restore defaults
+     */
     public void setTraceId(TraceId traceId) {
         this.traceId = traceId == null ? new TraceId() : traceId;
     }
@@ -154,6 +184,12 @@ public class RestTemplateObservationProperties {
             return mdcKeys;
         }
 
+        /**
+         * Replace the ordered MDC lookup keys.
+         *
+         * <p>A {@code null} value clears the keys. Non-null lists are copied.
+         * @param mdcKeys lookup keys, or {@code null} to configure none
+         */
         public void setMdcKeys(List<String> mdcKeys) {
             this.mdcKeys = mdcKeys == null
                     ? new ArrayList<String>()

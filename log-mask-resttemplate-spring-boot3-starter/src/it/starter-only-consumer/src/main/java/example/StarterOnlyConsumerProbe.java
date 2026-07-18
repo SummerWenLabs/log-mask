@@ -1,0 +1,174 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+package example;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Enumeration;
+import java.util.jar.JarFile;
+
+import io.github.summerwenlabs.log.mask.resttemplate.boot3.ObservedRestTemplate;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.WebApplicationType;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.web.client.RestTemplate;
+
+public final class StarterOnlyConsumerProbe {
+
+    private static final String AUTOCONFIGURE_ARTIFACT =
+            "log-mask-resttemplate-spring-boot3-autoconfigure";
+    private static final String STARTER_ARTIFACT =
+            "log-mask-resttemplate-spring-boot3-starter";
+
+    private StarterOnlyConsumerProbe() {
+    }
+
+    public static void main(String[] args) throws Exception {
+        if (args.length != 3) {
+            throw new IllegalArgumentException(
+                    "Expected local repository, artifact version, and Spring Boot version");
+        }
+        ClassLoader classLoader = ObservedRestTemplate.class.getClassLoader();
+        assertSpringBootVersion(args[2]);
+        assertWrongGenerationIsAbsent(classLoader);
+        assertAutoConfigurationStarts();
+        assertConfigurationMetadataIsDiscoverable(classLoader);
+        assertConfigurationProcessorIsNotTransitive(classLoader);
+        assertSourcesAreInstalled(Paths.get(args[0]), args[1]);
+    }
+
+    private static void assertSpringBootVersion(String expectedVersion) {
+        String actualVersion = SpringApplication.class.getPackage()
+                .getImplementationVersion();
+        if (!expectedVersion.equals(actualVersion)) {
+            throw new IllegalStateException("Expected Spring Boot " + expectedVersion
+                    + " but resolved " + actualVersion);
+        }
+    }
+
+    private static void assertWrongGenerationIsAbsent(ClassLoader classLoader) {
+        if (classLoader.getResource(
+                "META-INF/log-mask-resttemplate-spring-boot2.marker") != null) {
+            throw new IllegalStateException(
+                    "Boot 3 starter must not expose the Boot 2 generation marker");
+        }
+        try {
+            Class.forName(
+                    "io.github.summerwenlabs.log.mask.resttemplate.boot2.ObservedRestTemplate",
+                    false,
+                    classLoader);
+            throw new IllegalStateException(
+                    "Boot 3 starter must not expose the Boot 2 adapter API");
+        }
+        catch (ClassNotFoundException expected) {
+            // The matching starter must not pull in the other adapter generation.
+        }
+    }
+
+    private static void assertAutoConfigurationStarts() {
+        ConfigurableApplicationContext context = new SpringApplicationBuilder(
+                ConsumerApplication.class)
+                .web(WebApplicationType.NONE)
+                .properties("logging.level.log.mask.http=OFF")
+                .run();
+        try {
+            RestTemplate restTemplate = context.getBean(
+                    "logMaskRestTemplate",
+                    RestTemplate.class);
+            if (restTemplate == null) {
+                throw new IllegalStateException(
+                        "Boot 3 auto-configuration did not create a RestTemplate");
+            }
+        }
+        finally {
+            context.close();
+        }
+    }
+
+    private static void assertConfigurationMetadataIsDiscoverable(
+            ClassLoader classLoader) throws IOException {
+        Enumeration<URL> metadataResources = classLoader.getResources(
+                "META-INF/spring-configuration-metadata.json");
+        while (metadataResources.hasMoreElements()) {
+            String metadata = read(metadataResources.nextElement());
+            if (metadata.contains(
+                    "log-mask.logging.rest-template.response.headers-enabled")) {
+                return;
+            }
+        }
+        throw new IllegalStateException("RestTemplate configuration metadata was not found");
+    }
+
+    private static void assertConfigurationProcessorIsNotTransitive(
+            ClassLoader classLoader) {
+        try {
+            Class.forName(
+                    "org.springframework.boot.configurationprocessor."
+                            + "ConfigurationMetadataAnnotationProcessor",
+                    false,
+                    classLoader);
+            throw new IllegalStateException(
+                    "Configuration processor must not be a consumer dependency");
+        }
+        catch (ClassNotFoundException expected) {
+            // Metadata is published by the adapter, not generated by consumers.
+        }
+    }
+
+    private static void assertSourcesAreInstalled(Path localRepository, String version)
+            throws IOException {
+        Path groupDirectory = localRepository.resolve(Paths.get(
+                "io", "github", "summerwenlabs"));
+        assertSourceEntry(groupDirectory, AUTOCONFIGURE_ARTIFACT, version,
+                "io/github/summerwenlabs/log/mask/resttemplate/boot3/ObservedRestTemplate.java");
+        assertSourceEntry(groupDirectory, AUTOCONFIGURE_ARTIFACT, version,
+                "io/github/summerwenlabs/log/mask/resttemplate/boot3/autoconfigure/"
+                        + "RestTemplateObservationProperties.java");
+        assertSourceEntry(groupDirectory, STARTER_ARTIFACT, version,
+                "META-INF/maven/io.github.summerwenlabs/" + STARTER_ARTIFACT + "/pom.xml");
+    }
+
+    private static void assertSourceEntry(
+            Path groupDirectory,
+            String artifact,
+            String version,
+            String entryName) throws IOException {
+        Path sourceJar = groupDirectory.resolve(artifact).resolve(version)
+                .resolve(artifact + "-" + version + "-sources.jar");
+        if (!Files.isRegularFile(sourceJar)) {
+            throw new IllegalStateException("Missing source artifact: " + sourceJar);
+        }
+        try (JarFile jar = new JarFile(sourceJar.toFile())) {
+            if (jar.getJarEntry(entryName) == null) {
+                throw new IllegalStateException(
+                        "Missing source entry " + entryName + " in " + sourceJar);
+            }
+        }
+    }
+
+    private static String read(URL resource) throws IOException {
+        try (InputStream input = resource.openStream();
+                ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                output.write(buffer, 0, count);
+            }
+            return output.toString(StandardCharsets.UTF_8.name());
+        }
+    }
+
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    static class ConsumerApplication {
+    }
+}

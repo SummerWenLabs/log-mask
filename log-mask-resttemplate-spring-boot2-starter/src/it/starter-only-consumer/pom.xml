@@ -19,7 +19,7 @@
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
-                <version>${spring-boot.version}</version>
+                <version>${spring-boot2.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -59,7 +59,7 @@
                                     <classpath refid="maven.runtime.classpath" />
                                     <arg value="${settings.localRepository}" />
                                     <arg value="${log-mask.version}" />
-                                    <arg value="${spring-boot.version}" />
+                                    <arg value="${spring-boot2.version}" />
                                 </java>
                             </target>
                         </configuration>

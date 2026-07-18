@@ -35,6 +35,12 @@ public class LogMaskGovernanceProperties {
         return http;
     }
 
+    /**
+     * Replace the HTTP governance settings.
+     *
+     * <p>A {@code null} value restores the default settings.
+     * @param http settings to use, or {@code null} to restore defaults
+     */
     public void setHttp(Http http) {
         this.http = http == null ? new Http() : http;
     }
@@ -50,6 +56,12 @@ public class LogMaskGovernanceProperties {
             return path;
         }
 
+        /**
+         * Replace the path governance settings.
+         *
+         * <p>A {@code null} value restores the default settings.
+         * @param path settings to use, or {@code null} to restore defaults
+         */
         public void setPath(Path path) {
             this.path = path == null ? new Path() : path;
         }
@@ -58,6 +70,12 @@ public class LogMaskGovernanceProperties {
             return query;
         }
 
+        /**
+         * Replace the query governance settings.
+         *
+         * <p>A {@code null} value restores the default settings.
+         * @param query settings to use, or {@code null} to restore defaults
+         */
         public void setQuery(Query query) {
             this.query = query == null ? new Query() : query;
         }
@@ -66,6 +84,12 @@ public class LogMaskGovernanceProperties {
             return headers;
         }
 
+        /**
+         * Replace the header governance settings.
+         *
+         * <p>A {@code null} value restores the default settings.
+         * @param headers settings to use, or {@code null} to restore defaults
+         */
         public void setHeaders(Headers headers) {
             this.headers = headers == null ? new Headers() : headers;
         }
@@ -80,6 +104,13 @@ public class LogMaskGovernanceProperties {
             return rules;
         }
 
+        /**
+         * Replace the ordered path rules.
+         *
+         * <p>A {@code null} value clears the rules. A non-null list is retained
+         * by reference.
+         * @param rules ordered rules, or {@code null} to configure none
+         */
         public void setRules(List<PathRule> rules) {
             this.rules = rules == null ? new ArrayList<PathRule>() : rules;
         }
@@ -94,6 +125,13 @@ public class LogMaskGovernanceProperties {
             return rules;
         }
 
+        /**
+         * Replace the ordered query rules.
+         *
+         * <p>A {@code null} value clears the rules. A non-null list is retained
+         * by reference.
+         * @param rules ordered rules, or {@code null} to configure none
+         */
         public void setRules(List<ValueRule> rules) {
             this.rules = rules == null ? new ArrayList<ValueRule>() : rules;
         }
@@ -109,6 +147,12 @@ public class LogMaskGovernanceProperties {
             return request;
         }
 
+        /**
+         * Replace the request-header settings.
+         *
+         * <p>A {@code null} value restores the default settings.
+         * @param request settings to use, or {@code null} to restore defaults
+         */
         public void setRequest(Direction request) {
             this.request = request == null ? new Direction() : request;
         }
@@ -117,6 +161,12 @@ public class LogMaskGovernanceProperties {
             return response;
         }
 
+        /**
+         * Replace the response-header settings.
+         *
+         * <p>A {@code null} value restores the default settings.
+         * @param response settings to use, or {@code null} to restore defaults
+         */
         public void setResponse(Direction response) {
             this.response = response == null ? new Direction() : response;
         }
@@ -131,6 +181,13 @@ public class LogMaskGovernanceProperties {
             return rules;
         }
 
+        /**
+         * Replace the ordered header rules.
+         *
+         * <p>A {@code null} value clears the rules. A non-null list is retained
+         * by reference.
+         * @param rules ordered rules, or {@code null} to configure none
+         */
         public void setRules(List<ValueRule> rules) {
             this.rules = rules == null ? new ArrayList<ValueRule>() : rules;
         }
@@ -172,6 +229,13 @@ public class LogMaskGovernanceProperties {
             return variables;
         }
 
+        /**
+         * Replace the ordered path-variable declarations.
+         *
+         * <p>A {@code null} value clears the declarations. A non-null list is
+         * retained by reference.
+         * @param variables declarations, or {@code null} to configure none
+         */
         public void setVariables(List<PathVariable> variables) {
             this.variables = variables == null
                     ? new ArrayList<PathVariable>()

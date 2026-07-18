@@ -71,7 +71,8 @@
                             </goals>
                             <properties>
                                 <log-mask.version>${project.version}</log-mask.version>
-                                <spring-boot.version>${spring-boot.version}</spring-boot.version>
+                                <spring-boot2.version>${spring-boot2.version}</spring-boot2.version>
+                                <spring-boot3.version>${spring-boot3.version}</spring-boot3.version>
                             </properties>
                             <extraArtifacts>
                                 <extraArtifact>

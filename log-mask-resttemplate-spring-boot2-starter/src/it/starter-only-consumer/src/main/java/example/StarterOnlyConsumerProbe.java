@@ -33,6 +33,7 @@ public final class StarterOnlyConsumerProbe {
         }
         ClassLoader classLoader = ObservedRestTemplate.class.getClassLoader();
         assertSpringBootVersion(args[2]);
+        assertWrongGenerationIsAbsent(classLoader);
         assertConfigurationMetadataIsDiscoverable(classLoader);
         assertConfigurationProcessorIsNotTransitive(classLoader);
         assertSourcesAreInstalled(Paths.get(args[0]), args[1]);
@@ -44,6 +45,25 @@ public final class StarterOnlyConsumerProbe {
         if (!expectedVersion.equals(actualVersion)) {
             throw new IllegalStateException("Expected Spring Boot " + expectedVersion
                     + " but resolved " + actualVersion);
+        }
+    }
+
+    private static void assertWrongGenerationIsAbsent(ClassLoader classLoader) {
+        if (classLoader.getResource(
+                "META-INF/log-mask-resttemplate-spring-boot3.marker") != null) {
+            throw new IllegalStateException(
+                    "Boot 2 starter must not expose the Boot 3 generation marker");
+        }
+        try {
+            Class.forName(
+                    "io.github.summerwenlabs.log.mask.resttemplate.boot3.ObservedRestTemplate",
+                    false,
+                    classLoader);
+            throw new IllegalStateException(
+                    "Boot 2 starter must not expose the Boot 3 adapter API");
+        }
+        catch (ClassNotFoundException expected) {
+            // The matching starter must not pull in the other adapter generation.
         }
     }
 
