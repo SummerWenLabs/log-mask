@@ -159,7 +159,7 @@ class RestTemplateAdapterStartupFailureAndContextIntegrationTest {
                                     assertEquals(2, messages.size());
                                     assertTrue(messages.contains(
                                             "Log Mask RestTemplate adapter initialized: "
-                                                    + "version=0.1.0-SNAPSHOT, "
+                                                    + "version=0.1.0, "
                                                     + "contextId=parent-context, "
                                                     + "observedInstanceCountAtStartup=1, "
                                                     + "observedBeanNamesAtStartup="
@@ -167,7 +167,7 @@ class RestTemplateAdapterStartupFailureAndContextIntegrationTest {
                                                     + "exchangeEventsEnabledAtStartup=true"));
                                     assertTrue(messages.contains(
                                             "Log Mask RestTemplate adapter initialized: "
-                                                    + "version=0.1.0-SNAPSHOT, "
+                                                    + "version=0.1.0, "
                                                     + "contextId=child-context, "
                                                     + "observedInstanceCountAtStartup=1, "
                                                     + "observedBeanNamesAtStartup="

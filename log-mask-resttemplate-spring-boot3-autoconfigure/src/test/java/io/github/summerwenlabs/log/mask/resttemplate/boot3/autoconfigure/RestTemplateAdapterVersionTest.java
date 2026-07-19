@@ -14,7 +14,7 @@ class RestTemplateAdapterVersionTest {
 
     @Test
     void reportsMavenVersionWhenRunningFromClassesDirectory() {
-        assertEquals("0.1.0-SNAPSHOT", RestTemplateAdapterVersion.get());
+        assertEquals("0.1.0", RestTemplateAdapterVersion.get());
     }
 
     @Test

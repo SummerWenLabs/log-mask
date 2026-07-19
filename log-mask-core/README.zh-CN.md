@@ -23,7 +23,7 @@
 <dependency>
     <groupId>io.github.summerwenlabs</groupId>
     <artifactId>log-mask-core</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 

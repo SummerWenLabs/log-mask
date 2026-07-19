@@ -10,7 +10,7 @@
 
 ```bash
 mvn -pl log-mask-samples-spring-boot3 -am package
-java -jar log-mask-samples-spring-boot3/target/log-mask-samples-spring-boot3-0.1.0-SNAPSHOT.jar
+java -jar log-mask-samples-spring-boot3/target/log-mask-samples-spring-boot3-0.1.0.jar
 ```
 
 默认使用 Spring Boot 3.5.16。默认 profile 会让自动配置创建唯一的
@@ -33,7 +33,7 @@ header。
 同时命中三种方式，但只会安装一条观测链并记录一次：
 
 ```bash
-java -jar log-mask-samples-spring-boot3/target/log-mask-samples-spring-boot3-0.1.0-SNAPSHOT.jar --spring.profiles.active=selection-demo
+java -jar log-mask-samples-spring-boot3/target/log-mask-samples-spring-boot3-0.1.0.jar --spring.profiles.active=selection-demo
 ```
 
 这个 profile 会依次调用 `/samples/selection/annotated`、
@@ -45,14 +45,14 @@ java -jar log-mask-samples-spring-boot3/target/log-mask-samples-spring-boot3-0.1
 只包含 request，`response` 为 `null`：
 
 ```bash
-java -jar log-mask-samples-spring-boot3/target/log-mask-samples-spring-boot3-0.1.0-SNAPSHOT.jar --spring.profiles.active=request-only-demo
+java -jar log-mask-samples-spring-boot3/target/log-mask-samples-spring-boot3-0.1.0.jar --spring.profiles.active=request-only-demo
 # 另一个终端：curl -i http://127.0.0.1:8080/samples/request-only
 ```
 
 只启动端点、手动发起请求时，可以关闭自动演示调用：
 
 ```bash
-java -jar log-mask-samples-spring-boot3/target/log-mask-samples-spring-boot3-0.1.0-SNAPSHOT.jar --log-mask.samples.demo.enabled=false
+java -jar log-mask-samples-spring-boot3/target/log-mask-samples-spring-boot3-0.1.0.jar --log-mask.samples.demo.enabled=false
 ```
 
 ## 验证

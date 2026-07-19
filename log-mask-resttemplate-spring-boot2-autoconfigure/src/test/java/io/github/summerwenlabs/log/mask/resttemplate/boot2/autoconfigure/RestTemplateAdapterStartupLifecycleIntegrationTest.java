@@ -60,7 +60,7 @@ class RestTemplateAdapterStartupLifecycleIntegrationTest {
                     assertEquals(1, summaries.size());
                     assertEquals(
                             "Log Mask RestTemplate adapter initialized: "
-                                    + "version=0.1.0-SNAPSHOT, "
+                                    + "version=0.1.0, "
                                     + "contextId=selected-context, "
                                     + "observedInstanceCountAtStartup=1, "
                                     + "observedBeanNamesAtStartup=[selected], "
@@ -95,7 +95,7 @@ class RestTemplateAdapterStartupLifecycleIntegrationTest {
                     assertEquals(1, summaries.size());
                     assertEquals(
                             "Log Mask RestTemplate adapter initialized: "
-                                    + "version=0.1.0-SNAPSHOT, "
+                                    + "version=0.1.0, "
                                     + "contextId=zero-observed-context, "
                                     + "observedInstanceCountAtStartup=0, "
                                     + "observedBeanNamesAtStartup=[], "
@@ -148,7 +148,7 @@ class RestTemplateAdapterStartupLifecycleIntegrationTest {
                     assertEquals(1, logs.summaryEvents().size());
                     assertEquals(
                             "Log Mask RestTemplate adapter initialized: "
-                                    + "version=0.1.0-SNAPSHOT, "
+                                    + "version=0.1.0, "
                                     + "contextId=late-template-context, "
                                     + "observedInstanceCountAtStartup=0, "
                                     + "observedBeanNamesAtStartup=[], "

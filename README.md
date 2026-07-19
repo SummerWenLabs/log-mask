@@ -150,7 +150,7 @@ For business object masking only, add Core:
 <dependency>
     <groupId>io.github.summerwenlabs</groupId>
     <artifactId>log-mask-core</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 
@@ -160,7 +160,7 @@ For RestTemplate call logging in a Spring Boot 2 application, add:
 <dependency>
     <groupId>io.github.summerwenlabs</groupId>
     <artifactId>log-mask-resttemplate-spring-boot2-starter</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 
@@ -170,7 +170,7 @@ For RestTemplate call logging in a Spring Boot 3 application, add:
 <dependency>
     <groupId>io.github.summerwenlabs</groupId>
     <artifactId>log-mask-resttemplate-spring-boot3-starter</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 

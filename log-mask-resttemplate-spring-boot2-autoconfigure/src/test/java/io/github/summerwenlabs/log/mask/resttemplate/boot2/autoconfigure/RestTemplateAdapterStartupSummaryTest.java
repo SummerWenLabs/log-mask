@@ -42,7 +42,7 @@ class RestTemplateAdapterStartupSummaryTest {
             assertEquals(Level.INFO, events.get(0).getLevel());
             assertEquals(
                     "Log Mask RestTemplate adapter initialized: "
-                            + "version=0.1.0-SNAPSHOT, "
+                            + "version=0.1.0, "
                             + "contextId=application, "
                             + "observedInstanceCountAtStartup=2, "
                             + "observedBeanNamesAtStartup="
@@ -91,7 +91,7 @@ class RestTemplateAdapterStartupSummaryTest {
             assertEquals(Level.INFO, events.get(0).getLevel());
             assertEquals(
                     "Log Mask RestTemplate adapter initialized: "
-                            + "version=0.1.0-SNAPSHOT, "
+                            + "version=0.1.0, "
                             + "contextId=application, "
                             + "observedInstanceCountAtStartup=21, "
                             + "observedBeanNamesAtStartup="
