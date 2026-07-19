@@ -49,5 +49,5 @@ java -jar log-mask-samples/target/log-mask-samples-0.1.0-SNAPSHOT.jar --log-mask
 
 ```bash
 mvn -pl log-mask-samples -am test
-mvn -pl log-mask-samples -am "-Dspring-boot.version=2.6.15" test
+mvn -pl log-mask-samples -am "-Dspring-boot2.version=2.6.15" test
 ```

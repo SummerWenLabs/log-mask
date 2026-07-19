@@ -1,10 +1,10 @@
-# Log Mask RestTemplate Starter for Spring Boot 2
+# Log Mask RestTemplate Starter for Spring Boot 3
 
 **English** | [简体中文](README.zh-CN.md)
 
-`log-mask-resttemplate-spring-boot2-starter` adds request and response call logs to selected `RestTemplate` beans in Spring Boot 2 applications. It masks or excludes log content according to configuration.
+`log-mask-resttemplate-spring-boot3-starter` adds request and response call logs to selected `RestTemplate` beans in Spring Boot 3 applications. It masks or excludes log content according to configuration.
 
-It supports Java 8 and Spring Boot 2.6.15 and 2.7.18. For Spring Boot 3, use the [Spring Boot 3 Starter guide](../log-mask-resttemplate-spring-boot3-starter/README.md).
+It supports Java 17 and 21 with Spring Boot 3.2.12, 3.3.13, 3.4.13, and 3.5.16. For Spring Boot 2, use the [Spring Boot 2 Starter guide](../log-mask-resttemplate-spring-boot2-starter/README.md).
 
 The log structure, content switches, and masking rules are shared by both Spring Boot generations. See the [RestTemplate common guide](../log-mask-resttemplate/README.md).
 
@@ -17,6 +17,7 @@ The log structure, content switches, and masking rules are shared by both Spring
 - Use `@Mask` and `@LogExclude` for Request Body and Response Body fields.
 - Enable or disable Request Header, Request Body, Response Header, and Response Body logging separately.
 - Limit the logged size of each request and response Body.
+- Coexist with Micrometer Observation in Spring Boot 3.
 - Change only log content; do not modify real requests, responses, application objects, MDC, or business exceptions.
 
 ## Quick start
@@ -26,7 +27,7 @@ The log structure, content switches, and masking rules are shared by both Spring
 ```xml
 <dependency>
     <groupId>io.github.summerwenlabs</groupId>
-    <artifactId>log-mask-resttemplate-spring-boot2-starter</artifactId>
+    <artifactId>log-mask-resttemplate-spring-boot3-starter</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
 ```
@@ -64,7 +65,7 @@ public final class User {
 ### 3. Select a RestTemplate
 
 ```java
-import io.github.summerwenlabs.log.mask.resttemplate.boot2.ObservedRestTemplate;
+import io.github.summerwenlabs.log.mask.resttemplate.boot3.ObservedRestTemplate;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.client.RestTemplate;
@@ -157,7 +158,7 @@ The following shows the main fields of the resulting call log:
 
 ## How it works
 
-Log Mask does not proxy every RestTemplate in the application. It installs call logging only on selected instances.
+Log Mask does not proxy or process every RestTemplate in the application. It installs call logging only on selected instances.
 
 For each selected RestTemplate:
 
@@ -193,7 +194,7 @@ log-mask:
 3. Provide a code-based selector:
 
 ```java
-import io.github.summerwenlabs.log.mask.resttemplate.boot2.RestTemplateObservationConfigurer;
+import io.github.summerwenlabs.log.mask.resttemplate.boot3.RestTemplateObservationConfigurer;
 import org.springframework.context.annotation.Bean;
 
 @Bean
@@ -206,6 +207,12 @@ public RestTemplateObservationConfigurer partnerSelection() {
 A configured name must exist in the current `ApplicationContext` and refer to a RestTemplate. A missing name or a Bean of another type stops application startup.
 
 Together with the automatically created `logMaskRestTemplate`, these are the four selection paths supported by the Starter.
+
+## Micrometer Observation and tracing
+
+Log Mask can run alongside Micrometer Observation configured by Spring Boot 3. It does not replace or disable the application's `ObservationRegistry`, metrics, tracing, interceptors, or other `RestTemplateBuilder` configuration. The same request can be observed by both the application's Observation and the Log Mask call log.
+
+Log Mask does not create spans and does not require Actuator or Tracing. When Trace ID lookup is enabled, it only reads configured values from MDC and does not write to MDC.
 
 ## Shared logging and masking guide
 
@@ -226,13 +233,15 @@ The following topics are identical in Boot 2 and Boot 3 and are maintained in th
 
 ## Spring Boot compatibility
 
-This Starter is for Spring Boot 2 only. For Spring Boot 3, use `log-mask-resttemplate-spring-boot3-starter`. If the wrong generation is used, the application reports a clear error during startup.
+This Starter is for Spring Boot 3 only. Spring Boot 3.0 and 3.1 are outside the supported range. Spring Boot 2 applications must use `log-mask-resttemplate-spring-boot2-starter`. If the wrong generation is used, or both Starter generations are added, the application reports a clear error during startup.
+
+Ordinary JVM execution, including `java -jar`, is supported. This version does not make a compatibility commitment for Spring AOT or GraalVM Native Image.
 
 ## Related documentation
 
 - [Log Mask project home](../README.md)
 - [RestTemplate common guide](../log-mask-resttemplate/README.md)
 - [Core guide](../log-mask-core/README.md)
-- [Spring Boot 2 runnable sample](../log-mask-samples/README.md)
-- [Spring Boot 3 Starter guide](../log-mask-resttemplate-spring-boot3-starter/README.md)
+- [Spring Boot 3 runnable sample](../log-mask-samples-spring-boot3/README.md)
+- [Spring Boot 2 Starter guide](../log-mask-resttemplate-spring-boot2-starter/README.md)
 - [Security policy](../SECURITY.md)

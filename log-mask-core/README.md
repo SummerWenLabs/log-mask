@@ -1,48 +1,39 @@
-# Log Mask Core
+# log-mask-core
 
-**English** · [简体中文](README.zh-CN.md)
+**English** | [简体中文](README.zh-CN.md)
 
-> Turn sensitive fields in Java objects into JSON that can be written directly to logs.
+`log-mask-core` is the base Log Mask module. It supports Java 8, has no Spring
+dependency, and can be used independently.
 
-## Why use it
-
-1. Sensitive fields such as phone numbers, identity numbers, and bank cards
-   need masking before an object is logged.
-2. Some fields must stay on the business object but must not appear in logs.
-3. Sensitive fields need processing without adding Spring or an HTTP client.
-
-## Module overview
-
-`log-mask-core` is the base Log Mask module. It supports Java 8 and has no
-Spring dependency. Only fields marked with `@Mask` or `@LogExclude` are
-processed; unmarked fields are written according to the Jackson configuration.
-
-Field processing changes only the log JSON. It does not modify the source
-object or the application's `ObjectMapper`.
+It applies rules declared on business object fields and produces JSON that can
+be written directly to logs. Unmarked fields retain their original values
+according to the Jackson configuration. Neither the source object nor the
+application-provided `ObjectMapper` is modified.
 
 ## Features
 
-- Mask fields with `@Mask`.
-- Remove fields from log JSON with `@LogExclude`.
-- Use built-in mask types, regular expressions, or custom strategies.
-- Apply annotations automatically inside nested objects, collections, arrays,
-  and maps.
-- Limit the UTF-8 size of one JSON result.
-- Reuse a built `LogMasker` across threads.
+- Mask fields with `@Mask`
+- Exclude fields from logs with `@LogExclude`
+- Use built-in mask types, regular-expression replacement, or custom masking
+  strategies
+- Process nested objects and business objects in `List<User>`, `User[]`, and
+  `Map<String, User>`
+- Limit the UTF-8 size of the final JSON without returning truncated output
+- Reuse a built `LogMasker` across threads
 
-## Quick start
+# Quick start
 
-### Maven
+## Maven
 
 ```xml
 <dependency>
-  <groupId>io.github.summerwenlabs</groupId>
-  <artifactId>log-mask-core</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+    <groupId>io.github.summerwenlabs</groupId>
+    <artifactId>log-mask-core</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
 </dependency>
 ```
 
-### 1. Mark the fields
+## 1. Add field rules
 
 ```java
 import io.github.summerwenlabs.log.mask.governance.LogExclude;
@@ -50,103 +41,175 @@ import io.github.summerwenlabs.log.mask.governance.Mask;
 import io.github.summerwenlabs.log.mask.governance.MaskType;
 
 final class LoginEvent {
-    @Mask(type = MaskType.PHONE)
-    public final String phone;
+
+    @Mask(type = MaskType.EMAIL)
+    public final String email;
 
     @LogExclude
     public final String accessToken;
 
     public final String result;
 
-    LoginEvent(String phone, String accessToken, String result) {
-        this.phone = phone;
+    LoginEvent(String email, String accessToken, String result) {
+        this.email = email;
         this.accessToken = accessToken;
         this.result = result;
     }
 }
 ```
 
-### 2. Generate log JSON
+## 2. Create a LogMasker
 
 ```java
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.summerwenlabs.log.mask.LogMasker;
 
 LogMasker logMasker = LogMasker.builder(new ObjectMapper()).build();
+```
 
+A built `LogMasker` can be reused safely across threads. It does not need to be
+created for every log statement.
+
+## 3. Generate log JSON
+
+```java
 LoginEvent event = new LoginEvent(
-        "13800138000", "actual-token", "SUCCESS");
+        "demo@example.com",
+        "TOKEN-EXAMPLE-ABCD",
+        "SUCCESS");
+
 String logJson = logMasker.mask(event);
 ```
 
-Source object data:
+Output:
 
 ```json
-{"phone":"13800138000","accessToken":"actual-token","result":"SUCCESS"}
+{
+  "email": "d***@example.com",
+  "result": "SUCCESS"
+}
 ```
 
-`logJson`:
+| Field | Result |
+| --- | --- |
+| `email` | Masked with the EMAIL rule |
+| `accessToken` | Excluded from the log |
+| `result` | Retains its original value |
 
-```json
-{"phone":"138****8000","result":"SUCCESS"}
-```
+The source `LoginEvent` is not modified.
 
-`phone` is masked, `accessToken` is removed, and the unmarked `result` keeps its
-original value.
+# Field rules
 
-## Mask fields
+## @Mask
 
-`@Mask` can be placed on a field or getter.
+`@Mask` marks a field for masking and can be placed on a field or getter.
 
-| Declaration | Source value | Log result |
-| --- | --- | --- |
-| `@Mask(type = MaskType.REDACT)` | Any value | `"<redacted>"` |
-| `@Mask(type = MaskType.PHONE)` | `13800138000` | `"138****8000"` |
-| `@Mask(type = MaskType.EMAIL)` | `alice@example.com` | `"a****@example.com"` |
-| `@Mask(type = MaskType.ID_CARD)` | `110101199001011234` | `"110101********1234"` |
-| `@Mask(type = MaskType.BANK_CARD)` | `6222021234567890` | `"6222********7890"` |
-| `@Mask(type = MaskType.FULL)` | `A😀中` | `"***"` |
-| `@Mask(type = MaskType.CUSTOM, pattern = "[0-9]", replacement = "*")` | `AB-12-34` | `"AB-**-**"` |
+It supports three declaration forms:
 
-For PHONE, EMAIL, ID_CARD, and BANK_CARD, a malformed non-empty value becomes
-the same number of `*` characters instead of remaining visible. `null` stays
-`null`, and an empty string stays empty.
+| Declaration | Purpose |
+| --- | --- |
+| `@Mask(type = MaskType.EMAIL)` | Use a built-in mask type |
+| `@Mask(type = MaskType.CUSTOM, pattern = "...", replacement = "...")` | Declare regular-expression replacement for this field |
+| `@Mask(typeCode = "CUSTOMER_ID")` | Use a registered custom masking strategy |
 
-The same annotations work in nested objects, collections, arrays, and maps. No
-additional option is required.
+These forms cannot be combined. If declarations conflict, the regular
+expression is invalid, or a custom strategy cannot be found, the current field
+is written as `"<redacted>"` while the remaining fields continue normally.
 
-## Exclude fields
+Except for REDACT, PHONE, EMAIL, ID_CARD, BANK_CARD, FULL,
+regular-expression replacement, and custom masking strategies operate on
+String fields. When one of these rules is placed on a non-String field, that
+field is written as `"<redacted>"` and the content-based strategy is not called.
 
-Use `@LogExclude` for a field that must not enter the log:
+## @LogExclude
+
+`@LogExclude` removes a field that must not be written to logs. It can be placed
+on a field or getter.
 
 ```java
 @LogExclude
 public final String accessToken;
 ```
 
-Before processing:
+Both the field name and value are absent from the generated JSON.
+`@LogExclude` does not read the field value. If the same property has both
+`@LogExclude` and `@Mask`, `@LogExclude` takes precedence.
 
-```json
-{"accessToken":"actual-token","result":"SUCCESS"}
+## Unmarked fields
+
+Fields without `@Mask` or `@LogExclude` retain their original values according
+to the Jackson configuration.
+
+# Built-in mask types
+
+`@Mask` supports these built-in types:
+
+| Type | Behavior | Example log result |
+| --- | --- | --- |
+| `MaskType.REDACT` | Does not read the source value; always uses fixed replacement content | `"<redacted>"` |
+| `MaskType.PHONE` | Processes an 11-character phone number and retains the first 3 and last 4 characters | `first 3****last 4` |
+| `MaskType.EMAIL` | Retains the first character and domain | `demo@example.com` -> `d***@example.com` |
+| `MaskType.ID_CARD` | Processes an 18-character identity number and retains the first 6 and last 4 characters | `first 6********last 4` |
+| `MaskType.BANK_CARD` | Processes a 12- to 19-character bank card number and retains the first 4 and last 4 characters | `first 4********last 4` |
+| `MaskType.FULL` | Replaces each Unicode code point with one `*` | `A😀中` -> `***` |
+
+Example:
+
+```java
+@Mask(type = MaskType.EMAIL)
+public final String email;
+```
+
+When PHONE, EMAIL, ID_CARD, or BANK_CARD receives a malformed non-empty value,
+it returns the same number of `*` characters instead of retaining the source
+value.
+
+`null` remains `null`, and an empty string remains empty.
+
+# Regular-expression replacement
+
+When built-in types do not fit the requirement, declare a regular expression
+and its replacement directly on the field:
+
+```java
+@Mask(
+        type = MaskType.CUSTOM,
+        pattern = "[0-9]",
+        replacement = "*")
+public final String referenceCode;
+```
+
+Source value:
+
+```text
+AB-12-34
 ```
 
 Log result:
 
-```json
-{"result":"SUCCESS"}
+```text
+AB-**-**
 ```
 
-Both the field name and value are removed. If one property has both
-`@LogExclude` and `@Mask`, that property does not appear in the log.
+`pattern` uses Java regular-expression syntax, and `replacement` is the
+replacement content.
 
-## Custom strategies
+Regular-expression replacement requires `type = MaskType.CUSTOM` and cannot be
+combined with `typeCode`. If the expression is invalid, the field is written as
+`"<redacted>"`.
 
-First implement the `MaskTypeDefinition` interface:
+# Custom masking strategies
+
+Register a custom masking strategy when neither a built-in type nor
+regular-expression replacement meets the requirement.
+
+## 1. Define the strategy
 
 ```java
 import io.github.summerwenlabs.log.mask.strategy.MaskTypeDefinition;
 
 final class CustomerIdMask implements MaskTypeDefinition {
+
     @Override
     public String getTypeCode() {
         return "CUSTOMER_ID";
@@ -159,11 +222,10 @@ final class CustomerIdMask implements MaskTypeDefinition {
 }
 ```
 
-Register the strategy and use the same `typeCode` on the field:
+## 2. Register the strategy
 
 ```java
 import java.util.Collections;
-
 import io.github.summerwenlabs.log.mask.strategy.MaskStrategyRegistry;
 
 MaskStrategyRegistry registry = MaskStrategyRegistry.of(
@@ -172,26 +234,142 @@ MaskStrategyRegistry registry = MaskStrategyRegistry.of(
 LogMasker customMasker = LogMasker.builder(new ObjectMapper())
         .strategyRegistry(registry)
         .build();
+```
 
+## 3. Mark the business field
+
+```java
 final class CustomerRecord {
-    @Mask(typeCode = "CUSTOMER_ID")
-    public final String id;
 
-    CustomerRecord(String id) {
-        this.id = id;
+    @Mask(typeCode = "CUSTOMER_ID")
+    public final String customerId;
+
+    CustomerRecord(String customerId) {
+        this.customerId = customerId;
+    }
+}
+```
+
+## 4. Generate log JSON
+
+```java
+CustomerRecord record =
+        new CustomerRecord("CUSTOMER-EXAMPLE-ABCD");
+
+String logJson = customMasker.mask(record);
+```
+
+Output:
+
+```json
+{"customerId":"<customer-id>"}
+```
+
+Custom strategies must follow these rules:
+
+- `typeCode` cannot be empty or contain leading or trailing whitespace, and it
+  is case-sensitive
+- Multiple strategies cannot declare the same `typeCode`
+- A custom strategy may be called concurrently and must be thread-safe
+- If `mask(...)` returns `null` or throws an exception, the current field is
+  written as `"<redacted>"` while the remaining fields continue normally
+
+# Nested objects and containers
+
+Field rules continue to apply inside nested business objects.
+
+```java
+final class User {
+
+    @Mask(type = MaskType.EMAIL)
+    public final String email;
+
+    User(String email) {
+        this.email = email;
     }
 }
 
-String logJson = customMasker.mask(new CustomerRecord("customer-42"));
-// {"id":"<customer-id>"}
+final class LoginRequest {
+
+    public final User user;
+
+    LoginRequest(User user) {
+        this.user = user;
+    }
+}
 ```
 
-`typeCode` is case-sensitive. If a custom strategy returns `null` or throws an
-exception, that field becomes `"<redacted>"` and the remaining fields continue.
+Generate log JSON:
 
-## Limit output size
+```java
+LoginRequest request =
+        new LoginRequest(new User("demo@example.com"));
 
-Pass the maximum permitted UTF-8 size when one JSON result must stay small:
+String logJson = logMasker.mask(request);
+```
+
+Output:
+
+```json
+{
+  "user": {
+    "email": "d***@example.com"
+  }
+}
+```
+
+Business objects in collections, arrays, and maps are also supported:
+
+```java
+List<User> userList;
+User[] userArray;
+Map<String, User> userMap;
+```
+
+# Jackson configuration
+
+`log-mask-core` uses Jackson to generate log JSON. When creating a `LogMasker`,
+you can pass an `ObjectMapper` already configured by the application:
+
+```java
+LogMasker logMasker = LogMasker.builder(objectMapper).build();
+```
+
+`LogMasker` copies the supplied `ObjectMapper` and retains settings such as:
+
+- Jackson modules
+- Property naming rules
+- Date formats
+- Property visibility
+- JSON serialization settings
+
+The application-provided `ObjectMapper` is not modified.
+
+In a Spring Boot application, create one `LogMasker` bean for business object
+logging during application initialization:
+
+```java
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.summerwenlabs.log.mask.LogMasker;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class LogMaskConfiguration {
+
+    @Bean
+    public LogMasker objectLogMasker(ObjectMapper objectMapper) {
+        return LogMasker.builder(objectMapper).build();
+    }
+}
+```
+
+Business code can reuse this bean through dependency injection.
+
+# Limit output size
+
+Set the maximum permitted UTF-8 byte count when a single JSON log entry must
+remain within a fixed size:
 
 ```java
 import io.github.summerwenlabs.log.mask.BoundedMaskResult;
@@ -203,17 +381,22 @@ if (!result.isLimitExceeded()) {
 }
 ```
 
-1. `64` allows at most 64 UTF-8 bytes in the final JSON. The minimum is 1.
-2. When the result fits, `getJson()` returns the complete JSON document.
-3. When it does not fit, no truncated JSON is returned. Calling `getJson()` on
-   that result throws `IllegalStateException`.
+Here, `64` allows at most 64 UTF-8 bytes in the final JSON.
 
-`mask(value)` has no size limit and always attempts to return the complete JSON.
+| Result | `isLimitExceeded()` | `getJson()` |
+| --- | --- | --- |
+| Within the limit | `false` | Returns the complete JSON |
+| Limit exceeded | `true` | Throws `IllegalStateException` |
 
-## Disable field processing
+When the limit is exceeded, no truncated JSON is returned. This avoids writing
+incomplete or invalid JSON to logs.
 
-`governanceEnabled(false)` disables `@Mask`, `@LogExclude`, and all custom
-strategies:
+The maximum byte count must be at least 1. `mask(value)` has no size limit and
+attempts to return the complete JSON.
+
+# Disable field processing
+
+Use `governanceEnabled(false)` to disable all masking and exclusion rules:
 
 ```java
 LogMasker rawMasker = LogMasker.builder(new ObjectMapper())
@@ -223,41 +406,70 @@ LogMasker rawMasker = LogMasker.builder(new ObjectMapper())
 String logJson = rawMasker.mask(event);
 ```
 
-Log result:
+Output:
 
 ```json
-{"phone":"13800138000","accessToken":"actual-token","result":"SUCCESS"}
+{
+  "email": "demo@example.com",
+  "accessToken": "TOKEN-EXAMPLE-ABCD",
+  "result": "SUCCESS"
+}
 ```
 
-Sensitive values are then written according to the Jackson configuration. Turn
-off field processing only when raw log output is intentional.
+When field processing is disabled, `@Mask`, `@LogExclude`, and custom masking
+strategies do not run. Fields are serialized normally according to the Jackson
+configuration.
 
-## Method parameters and failures
+Disable field processing only when unmasked log content is explicitly needed.
 
-| Method | Use |
+# Method parameters and exceptions
+
+## Main methods
+
+| Method | Purpose |
 | --- | --- |
-| `LogMasker.builder(objectMapper)` | Start with the application's Jackson configuration |
-| `mask(value)` | Return complete JSON with no size limit |
-| `mask(value, maxUtf8Bytes)` | Limit the final JSON by its UTF-8 size |
-| `mask(value, declaredType, maxUtf8Bytes)` | Use when the caller already has a complete `Type`, such as `List<LoginEvent>` |
+| `LogMasker.builder(objectMapper)` | Create a `LogMasker` with the specified Jackson configuration |
+| `mask(value)` | Generate complete JSON with no size limit |
+| `mask(value, maxUtf8Bytes)` | Limit the final JSON by its UTF-8 byte count |
+| `mask(value, declaredType, maxUtf8Bytes)` | Use the specified Java type and limit the final JSON size |
 
-Ordinary application code can use the first two `mask` methods. If code already
-has the complete generic `Type`, it can pass that type while limiting the output
-size:
+`value` can be any value Jackson can serialize. Passing `null` returns the JSON
+value `null`.
+
+## Generic types
+
+When code already has the complete generic type, pass its `Type` to
+`LogMasker`:
 
 ```java
 import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.List;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 
-List<LoginEvent> events = Collections.singletonList(event);
-Type declaredType = new TypeReference<List<LoginEvent>>() { }.getType();
+List<LoginEvent> events =
+        Collections.singletonList(event);
+
+Type declaredType =
+        new TypeReference<List<LoginEvent>>() { }.getType();
+
 BoundedMaskResult result =
         logMasker.mask(events, declaredType, 64 * 1024);
 ```
 
-`value` can be any value Jackson can serialize. If a complete JSON document
-cannot be generated, `mask(...)` throws `LogMaskException`; the original
-exception remains in the cause chain.
+## Exceptions
+
+- A maximum UTF-8 byte count below 1 throws `IllegalArgumentException`
+- A `null` `declaredType` throws `NullPointerException`
+- Failure to generate JSON for the object as a whole throws `LogMaskException`
+- The original Jackson exception remains available as the cause of
+  `LogMaskException`
+- If one field has an invalid rule or its custom strategy fails, only that
+  field is written as `"<redacted>"`; the remaining fields continue normally
+
+# Related documentation
+
+- [Log Mask project home](../README.md)
+- [Spring Boot 2 RestTemplate Starter guide](../log-mask-resttemplate-spring-boot2-starter/README.md)
+- [Spring Boot 3 RestTemplate Starter guide](../log-mask-resttemplate-spring-boot3-starter/README.md)
+- [Security policy](../SECURITY.md)

@@ -1,10 +1,10 @@
-# log-mask-resttemplate-spring-boot2-starter
+# log-mask-resttemplate-spring-boot3-starter
 
 [English](README.md) | **简体中文**
 
-`log-mask-resttemplate-spring-boot2-starter` 为 Spring Boot 2 应用提供 RestTemplate 请求与响应日志，并按配置对日志内容进行脱敏或排除。
+`log-mask-resttemplate-spring-boot3-starter` 为 Spring Boot 3 应用提供 RestTemplate 请求与响应日志，并按配置对日志内容进行脱敏或排除。
 
-它支持 Java 8、Spring Boot 2.6.15 和 Spring Boot 2.7.18。使用 Spring Boot 3 时，请查看 [Spring Boot 3 Starter 使用指南](../log-mask-resttemplate-spring-boot3-starter/README.zh-CN.md)。
+它支持 Java 17 和 21，以及 Spring Boot 3.2.12、3.3.13、3.4.13 和 3.5.16。使用 Spring Boot 2 时，请查看 [Spring Boot 2 Starter 使用指南](../log-mask-resttemplate-spring-boot2-starter/README.zh-CN.md)。
 
 ## 核心特性
 
@@ -15,6 +15,7 @@
 - 使用 `@Mask` 和 `@LogExclude` 处理 Request Body 与 Response Body
 - Request Header、Request Body、Response Header 和 Response Body 可以分别关闭
 - 支持限制每个请求与响应 Body 的日志大小
+- 可以与 Spring Boot 3 的 Micrometer Observation 同时使用
 - 只处理日志内容，不修改真实请求、响应、业务对象、MDC 或业务异常
 
 日志结构、内容开关和脱敏规则由 Boot 2 与 Boot 3 共用，见 [RestTemplate 通用使用指南](../log-mask-resttemplate/README.zh-CN.md)。
@@ -26,7 +27,7 @@
 ```xml
 <dependency>
     <groupId>io.github.summerwenlabs</groupId>
-    <artifactId>log-mask-resttemplate-spring-boot2-starter</artifactId>
+    <artifactId>log-mask-resttemplate-spring-boot3-starter</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
 ```
@@ -64,7 +65,7 @@ public final class User {
 ## 3. 选择 RestTemplate
 
 ```java
-import io.github.summerwenlabs.log.mask.resttemplate.boot2.ObservedRestTemplate;
+import io.github.summerwenlabs.log.mask.resttemplate.boot3.ObservedRestTemplate;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.client.RestTemplate;
@@ -204,7 +205,7 @@ log-mask:
 ## 方式三：使用代码选择
 
 ```java
-import io.github.summerwenlabs.log.mask.resttemplate.boot2.RestTemplateObservationConfigurer;
+import io.github.summerwenlabs.log.mask.resttemplate.boot3.RestTemplateObservationConfigurer;
 import org.springframework.context.annotation.Bean;
 
 @Bean
@@ -215,6 +216,12 @@ public RestTemplateObservationConfigurer partnerSelection() {
 ```
 
 三种方式可以同时使用。同一个 RestTemplate 被多种方式选中时，只会安装一次，不会重复打印调用日志。
+
+# Micrometer Observation 与链路追踪
+
+Log Mask 可以与 Spring Boot 3 配置的 Micrometer Observation 同时使用。它不会替换或关闭应用的 `ObservationRegistry`、指标、链路追踪、Interceptor 或其他 `RestTemplateBuilder` 配置，同一个请求可以同时进入应用的 Observation 和 Log Mask 调用日志。
+
+Log Mask 不创建 Span，也不要求应用启用 Actuator 或 Tracing。开启 Trace ID 读取后，它只按配置从 MDC 读取已有值，不会写入 MDC。
 
 # 日志与脱敏配置
 
@@ -235,13 +242,15 @@ public RestTemplateObservationConfigurer partnerSelection() {
 
 # Spring Boot 版本说明
 
-Boot 2 Starter 只能用于 Spring Boot 2。Spring Boot 3 应用请使用 `log-mask-resttemplate-spring-boot3-starter`；使用错误代际的 Starter 时，应用会在启动阶段给出明确错误。
+Boot 3 Starter 只能用于 Spring Boot 3。Spring Boot 3.0 和 3.1 不在支持范围内；Spring Boot 2 应用请使用 `log-mask-resttemplate-spring-boot2-starter`。使用错误代际的 Starter，或者同时引入 Boot 2 和 Boot 3 Starter 时，应用会在启动阶段给出明确错误。
+
+支持普通 JVM 运行方式，包括 `java -jar`。当前版本不承诺兼容 Spring AOT 或 GraalVM Native Image。
 
 # 相关文档
 
 - [Log Mask 项目主页](../README.zh-CN.md)
 - [RestTemplate 通用使用指南](../log-mask-resttemplate/README.zh-CN.md)
 - [Core 使用指南](../log-mask-core/README.zh-CN.md)
-- [Spring Boot 2 可运行示例](../log-mask-samples/README.md)
-- [Spring Boot 3 Starter 使用指南](../log-mask-resttemplate-spring-boot3-starter/README.zh-CN.md)
+- [Spring Boot 3 可运行示例](../log-mask-samples-spring-boot3/README.md)
+- [Spring Boot 2 Starter 使用指南](../log-mask-resttemplate-spring-boot2-starter/README.zh-CN.md)
 - [安全策略](../SECURITY.md)
